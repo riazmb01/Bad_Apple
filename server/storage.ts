@@ -1,5 +1,7 @@
-import { type User, type InsertUser, type GameRoom, type InsertGameRoom, type GameSession, type InsertGameSession, type PlayerState } from "@shared/schema";
+import { type User, type InsertUser, type GameRoom, type InsertGameRoom, type GameSession, type InsertGameSession, type PlayerState, users, gameRooms, gameSessions } from "@shared/schema";
 import { randomUUID } from "crypto";
+import { db } from "./db";
+import { eq, desc, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -171,4 +173,139 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db
+      .insert(users)
+      .values({
+        ...insertUser,
+        level: 1,
+        points: 0,
+        streak: 0,
+        accuracy: 0,
+        wordsSpelled: 0,
+        gamesWon: 0,
+        bestStreak: 0,
+        achievements: [],
+      })
+      .returning();
+    return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const [user] = await db
+      .update(users)
+      .set(updates)
+      .where(eq(users.id, id))
+      .returning();
+    return user || undefined;
+  }
+
+  // Game room operations
+  async createGameRoom(insertRoom: InsertGameRoom): Promise<GameRoom> {
+    const code = this.generateRoomCode();
+    const [room] = await db
+      .insert(gameRooms)
+      .values({
+        ...insertRoom,
+        code,
+        currentPlayers: 0,
+        gameState: {},
+        isActive: false,
+        settings: {},
+        maxPlayers: insertRoom.maxPlayers ?? 10,
+      })
+      .returning();
+    return room;
+  }
+
+  async getGameRoom(id: string): Promise<GameRoom | undefined> {
+    const [room] = await db.select().from(gameRooms).where(eq(gameRooms.id, id));
+    return room || undefined;
+  }
+
+  async getGameRoomByCode(code: string): Promise<GameRoom | undefined> {
+    const [room] = await db.select().from(gameRooms).where(eq(gameRooms.code, code));
+    return room || undefined;
+  }
+
+  async updateGameRoom(id: string, updates: Partial<GameRoom>): Promise<GameRoom | undefined> {
+    const [room] = await db
+      .update(gameRooms)
+      .set(updates)
+      .where(eq(gameRooms.id, id))
+      .returning();
+    return room || undefined;
+  }
+
+  async deleteGameRoom(id: string): Promise<boolean> {
+    const result = await db.delete(gameRooms).where(eq(gameRooms.id, id));
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  // Game session operations
+  async createGameSession(insertSession: InsertGameSession): Promise<GameSession> {
+    const [session] = await db
+      .insert(gameSessions)
+      .values({
+        ...insertSession,
+        score: 0,
+        correctAnswers: 0,
+        totalAnswers: 0,
+        hintsUsed: 0,
+        timeElapsed: 0,
+        isComplete: false,
+      })
+      .returning();
+    return session;
+  }
+
+  async getGameSession(id: string): Promise<GameSession | undefined> {
+    const [session] = await db.select().from(gameSessions).where(eq(gameSessions.id, id));
+    return session || undefined;
+  }
+
+  async getGameSessionsByRoom(roomId: string): Promise<GameSession[]> {
+    return await db.select().from(gameSessions).where(eq(gameSessions.roomId, roomId));
+  }
+
+  async updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined> {
+    const [session] = await db
+      .update(gameSessions)
+      .set(updates)
+      .where(eq(gameSessions.id, id))
+      .returning();
+    return session || undefined;
+  }
+
+  // Leaderboard operations
+  async getLeaderboard(limit: number = 10): Promise<User[]> {
+    return await db
+      .select()
+      .from(users)
+      .orderBy(desc(users.points))
+      .limit(limit);
+  }
+
+  private generateRoomCode(): string {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = 'SPELL-';
+    for (let i = 0; i < 4; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  }
+}
+
+export const storage = new DatabaseStorage();
