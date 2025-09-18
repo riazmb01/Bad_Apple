@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Volume2, Lightbulb, Forward, Pause, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,32 +22,54 @@ export default function SpellingBeeGame({
 }: SpellingBeeGameProps) {
   const [userInput, setUserInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(gameState?.timeLeft || 45);
+  const timeoutRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [hintsUsed, setHintsUsed] = useState({
     firstLetter: false,
     definition: false,
     sentence: false
   });
 
+  // Reset on round changes only
   useEffect(() => {
-    if (gameState?.timeLeft) {
+    timeoutRef.current = false;
+    setUserInput('');
+  }, [gameState?.currentRound]);
+  
+  // Sync timeLeft when it changes
+  useEffect(() => {
+    if (gameState?.timeLeft !== undefined) {
       setTimeLeft(gameState.timeLeft);
     }
   }, [gameState?.timeLeft]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    
+    intervalRef.current = setInterval(() => {
       setTimeLeft((prev: number) => {
-        if (prev <= 1) {
-          // Time's up - auto submit
-          handleSubmit();
+        if (prev <= 1 && !timeoutRef.current) {
+          // Time's up - auto submit empty answer to advance
+          timeoutRef.current = true;
+          setUserInput(''); // Clear input on timeout
+          onSubmitAnswer('');
+          // Stop interval after timeout
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           return 0;
+        } else if (prev > 1) {
+          return prev - 1;
         }
-        return prev - 1;
+        return prev;
       });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, []);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [gameState?.currentRound]);
 
   const handleSubmit = () => {
     if (userInput.trim()) {

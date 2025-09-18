@@ -115,9 +115,9 @@ export default function Leaderboard({ currentUserId }: LeaderboardProps) {
           </div>
 
           <div className="space-y-3">
-            {weeklyLeaderboard.map((player) => (
+            {weeklyLeaderboard.map((player, index) => (
               <div 
-                key={player.id}
+                key={`${player.id}-${index}`}
                 className={`flex items-center space-x-4 p-4 rounded-lg ${
                   player.id === currentUserId 
                     ? 'bg-primary/10 border-2 border-primary' 
