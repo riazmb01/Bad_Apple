@@ -86,7 +86,7 @@ export default function Home() {
         {currentMode === 'menu' && (
           <>
             <GameModeSelector onSelectMode={handleSelectMode} />
-            <GameStats user={currentUser} />
+            <GameStats userId={currentUser.id} />
             <Leaderboard currentUserId={currentUser.id} />
           </>
         )}

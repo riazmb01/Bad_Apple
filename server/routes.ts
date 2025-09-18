@@ -410,6 +410,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(room);
   });
 
+  app.get("/api/users/:id/achievements", async (req, res) => {
+    const user = await storage.getUser(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json(user.achievements || []);
+  });
+
   app.get("/api/leaderboard", async (req, res) => {
     const limit = parseInt(req.query.limit as string) || 10;
     const leaderboard = await storage.getLeaderboard(limit);
