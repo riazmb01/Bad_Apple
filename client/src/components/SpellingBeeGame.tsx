@@ -46,6 +46,11 @@ export default function SpellingBeeGame({
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [totalAttempts, setTotalAttempts] = useState(0);
+  const [feedback, setFeedback] = useState<{ show: boolean; isCorrect: boolean; message: string }>({
+    show: false,
+    isCorrect: false,
+    message: ''
+  });
 
   // Fetch initial words
   const { data: initialWords } = useQuery<Word[]>({
@@ -82,11 +87,26 @@ export default function SpellingBeeGame({
 
   const currentWord = words[currentWordIndex] || null;
 
+  // Console log each word and auto-play pronunciation
+  useEffect(() => {
+    if (currentWord) {
+      console.log('Current word:', currentWord.word);
+      console.log('Word details:', currentWord);
+      // Auto-play pronunciation for the new word
+      setTimeout(() => {
+        if (!isMuted) {
+          speakWord(currentWord.word, false);
+        }
+      }, 500);
+    }
+  }, [currentWord]);
+
   // Reset on word changes
   useEffect(() => {
     timeoutRef.current = false;
     setUserInput('');
     setTimeLeft(45);
+    setFeedback({ show: false, isCorrect: false, message: '' });
     setHintsUsed({
       firstLetter: false,
       definition: false,
@@ -140,13 +160,27 @@ export default function SpellingBeeGame({
         if (hintsUsed.definition) points -= 3;
         if (hintsUsed.sentence) points -= 3;
         setScore(prev => prev + Math.max(points, 1));
+        setFeedback({
+          show: true,
+          isCorrect: true,
+          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points!`
+        });
+      } else {
+        setFeedback({
+          show: true,
+          isCorrect: false,
+          message: `Incorrect. The correct spelling was "${currentWord.word}".`
+        });
       }
       
       // Notify parent component for backend synchronization
       onSubmitAnswer(userInput.trim());
       
-      setUserInput("");
-      setCurrentWordIndex(prev => prev + 1);
+      // Show feedback for 2 seconds before moving to next word
+      setTimeout(() => {
+        setUserInput("");
+        setCurrentWordIndex(prev => prev + 1);
+      }, 2000);
     }
   };
 
@@ -163,7 +197,8 @@ export default function SpellingBeeGame({
 
   const playPronunciation = () => {
     if (currentWord) {
-      speakWord(currentWord.word, isMuted);
+      console.log('Playing pronunciation for:', currentWord.word);
+      speakWord(currentWord.word, false);
     }
   };
 
@@ -235,6 +270,20 @@ export default function SpellingBeeGame({
               </Button>
             </div>
             
+            {/* Feedback Display */}
+            {feedback.show && (
+              <div 
+                className={`mb-6 p-4 rounded-lg ${
+                  feedback.isCorrect 
+                    ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-2 border-green-500' 
+                    : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-2 border-red-500'
+                }`}
+                data-testid={feedback.isCorrect ? 'feedback-correct' : 'feedback-incorrect'}
+              >
+                <p className="text-lg font-semibold">{feedback.message}</p>
+              </div>
+            )}
+            
             {/* Word Input */}
             <div className="max-w-md mx-auto">
               <Input 
@@ -245,6 +294,7 @@ export default function SpellingBeeGame({
                 className="typing-input text-2xl text-center py-4 px-6"
                 placeholder="Type the word here..."
                 data-testid="input-word-spelling"
+                disabled={feedback.show}
               />
             </div>
           </div>
@@ -333,7 +383,7 @@ export default function SpellingBeeGame({
               </Button>
               <Button 
                 onClick={handleSubmit}
-                disabled={!userInput.trim()}
+                disabled={!userInput.trim() || feedback.show}
                 data-testid="button-submit-answer"
               >
                 <Check className="mr-2 w-4 h-4" />
