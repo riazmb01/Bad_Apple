@@ -53,15 +53,26 @@ export default function SpellingBeeGame({
   });
 
   // Fetch initial words
-  const { data: initialWords } = useQuery<Word[]>({
-    queryKey: ['/api/words/batch'],
+  const { data: initialWords, refetch: refetchInitial } = useQuery<Word[]>({
+    queryKey: ['/api/words/batch', { count: 5, batch: 'initial', timestamp: Date.now() }],
+    queryFn: async () => {
+      const res = await fetch('/api/words/batch?count=5');
+      if (!res.ok) throw new Error('Failed to fetch words');
+      return res.json();
+    },
     enabled: words.length === 0,
   });
 
-  // Fetch next batch of words
-  const { data: prefetchedWords } = useQuery<Word[]>({
-    queryKey: ['/api/words/batch', 'next'],
+  // Fetch next batch of words (when on 4th word, which is index 3)
+  const { data: prefetchedWords, refetch: refetchNext } = useQuery<Word[]>({
+    queryKey: ['/api/words/batch', { count: 5, batch: 'prefetch', index: currentWordIndex }],
+    queryFn: async () => {
+      const res = await fetch('/api/words/batch?count=5');
+      if (!res.ok) throw new Error('Failed to fetch words');
+      return res.json();
+    },
     enabled: currentWordIndex === 3 && nextWords.length === 0,
+    staleTime: 0, // Always fetch fresh data
   });
 
   useEffect(() => {
@@ -79,9 +90,21 @@ export default function SpellingBeeGame({
   // Load next batch when current batch is exhausted
   useEffect(() => {
     if (currentWordIndex >= words.length && nextWords.length > 0) {
+      console.log('Switching to next batch of words');
       setWords(nextWords);
       setNextWords([]);
       setCurrentWordIndex(0);
+    } else if (currentWordIndex >= words.length && nextWords.length === 0 && words.length > 0) {
+      console.log('No more words available, fetching new batch');
+      // Fetch a completely new batch
+      fetch('/api/words/batch?count=5')
+        .then(res => res.json())
+        .then(data => {
+          console.log('Fetched new batch:', data);
+          setWords(data);
+          setCurrentWordIndex(0);
+        })
+        .catch(err => console.error('Failed to fetch new batch:', err));
     }
   }, [currentWordIndex, words.length, nextWords.length]);
 
