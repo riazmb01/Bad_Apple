@@ -165,7 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       players: [],
       gameMode: room.gameMode as any,
       difficulty: room.difficulty as any,
-      currentWord: getRandomWord(room.difficulty as any)
+      currentWord: await getRandomWord(room.difficulty as any)
     };
 
     await storage.updateGameRoom(room.id, {
@@ -304,7 +304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Next round
     gameState.currentRound++;
-    gameState.currentWord = getRandomWord(gameState.difficulty);
+    gameState.currentWord = await getRandomWord(gameState.difficulty);
     gameState.timeLeft = 45;
 
     await storage.updateGameRoom(roomId, {
@@ -354,7 +354,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  function getRandomWord(difficulty: string): Word {
+  async function getRandomWord(difficulty: string): Promise<Word> {
+    try {
+      const wordsCollection = await getWordsCollection();
+      const words = await wordsCollection
+        .aggregate([
+          { $match: { difficulty } },
+          { $sample: { size: 1 } }
+        ])
+        .toArray();
+      
+      if (words.length > 0) {
+        return words[0] as Word;
+      }
+    } catch (error) {
+      console.error('Failed to fetch word from MongoDB, using fallback:', error);
+    }
+    
+    // Fallback to static word bank if MongoDB fails
     const wordsForDifficulty = wordBank.filter(word => word.difficulty === difficulty);
     return wordsForDifficulty[Math.floor(Math.random() * wordsForDifficulty.length)];
   }
@@ -427,7 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/words/random", async (req, res) => {
     const difficulty = req.query.difficulty as string || "intermediate";
-    const word = getRandomWord(difficulty);
+    const word = await getRandomWord(difficulty);
     res.json(word);
   });
 
@@ -436,24 +453,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const count = parseInt(req.query.count as string) || 5;
       const difficulty = req.query.difficulty as string;
       
-      const wordsCollection = await getWordsCollection();
-      
-      const query: any = {};
-      if (difficulty) {
-        query.difficulty = difficulty;
+      try {
+        const wordsCollection = await getWordsCollection();
+        
+        const query: any = {};
+        if (difficulty) {
+          query.difficulty = difficulty;
+        }
+        
+        const words = await wordsCollection
+          .aggregate([
+            { $match: query },
+            { $sample: { size: count } }
+          ])
+          .toArray();
+        
+        if (words.length > 0) {
+          return res.json(words);
+        }
+      } catch (mongoError) {
+        console.error('Failed to fetch words from MongoDB, using fallback:', mongoError);
       }
       
-      const words = await wordsCollection
-        .aggregate([
-          { $match: query },
-          { $sample: { size: count } }
-        ])
-        .toArray();
+      // Fallback to static word bank if MongoDB fails or returns no words
+      const filtered = difficulty 
+        ? wordBank.filter(word => word.difficulty === difficulty)
+        : wordBank;
       
-      res.json(words);
+      const shuffled = filtered.sort(() => Math.random() - 0.5);
+      const selected = shuffled.slice(0, count);
+      
+      res.json(selected);
     } catch (error) {
-      console.error('Error fetching words from MongoDB:', error);
-      res.status(500).json({ message: "Failed to fetch words from database" });
+      console.error('Error in batch endpoint:', error);
+      res.status(500).json({ message: "Failed to fetch words" });
     }
   });
 

@@ -4,6 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { speakWord } from "@/utils/speechUtils";
+import { useQuery } from "@tanstack/react-query";
+
+interface Word {
+  _id?: string;
+  word: string;
+  definition?: string;
+  difficulty?: string;
+  exampleSentence?: string;
+}
 
 interface SpellingBeeGameProps {
   gameState: any;
@@ -21,7 +31,7 @@ export default function SpellingBeeGame({
   onPauseGame 
 }: SpellingBeeGameProps) {
   const [userInput, setUserInput] = useState("");
-  const [timeLeft, setTimeLeft] = useState(gameState?.timeLeft || 45);
+  const [timeLeft, setTimeLeft] = useState(45);
   const timeoutRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [hintsUsed, setHintsUsed] = useState({
@@ -29,19 +39,60 @@ export default function SpellingBeeGame({
     definition: false,
     sentence: false
   });
+  const [isMuted, setIsMuted] = useState(false);
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const [words, setWords] = useState<Word[]>([]);
+  const [nextWords, setNextWords] = useState<Word[]>([]);
+  const [score, setScore] = useState(0);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [totalAttempts, setTotalAttempts] = useState(0);
 
-  // Reset on round changes only
+  // Fetch initial words
+  const { data: initialWords } = useQuery<Word[]>({
+    queryKey: ['/api/words/batch'],
+    enabled: words.length === 0,
+  });
+
+  // Fetch next batch of words
+  const { data: prefetchedWords } = useQuery<Word[]>({
+    queryKey: ['/api/words/batch', 'next'],
+    enabled: currentWordIndex === 3 && nextWords.length === 0,
+  });
+
+  useEffect(() => {
+    if (initialWords && words.length === 0) {
+      setWords(initialWords);
+    }
+  }, [initialWords]);
+
+  useEffect(() => {
+    if (prefetchedWords && nextWords.length === 0) {
+      setNextWords(prefetchedWords);
+    }
+  }, [prefetchedWords]);
+
+  // Load next batch when current batch is exhausted
+  useEffect(() => {
+    if (currentWordIndex >= words.length && nextWords.length > 0) {
+      setWords(nextWords);
+      setNextWords([]);
+      setCurrentWordIndex(0);
+    }
+  }, [currentWordIndex, words.length, nextWords.length]);
+
+  const currentWord = words[currentWordIndex] || null;
+
+  // Reset on word changes
   useEffect(() => {
     timeoutRef.current = false;
     setUserInput('');
-  }, [gameState?.currentRound]);
-  
-  // Sync timeLeft when it changes
-  useEffect(() => {
-    if (gameState?.timeLeft !== undefined) {
-      setTimeLeft(gameState.timeLeft);
-    }
-  }, [gameState?.timeLeft]);
+    setTimeLeft(45);
+    setHintsUsed({
+      firstLetter: false,
+      definition: false,
+      sentence: false
+    });
+  }, [currentWordIndex]);
 
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
@@ -49,11 +100,9 @@ export default function SpellingBeeGame({
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev: number) => {
         if (prev <= 1 && !timeoutRef.current) {
-          // Time's up - auto submit empty answer to advance
           timeoutRef.current = true;
-          setUserInput(''); // Clear input on timeout
-          onSubmitAnswer('');
-          // Stop interval after timeout
+          setUserInput('');
+          handleTimeOut();
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
@@ -69,12 +118,35 @@ export default function SpellingBeeGame({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [gameState?.currentRound]);
+  }, [currentWordIndex]);
+
+  const handleTimeOut = () => {
+    setTotalAttempts(prev => prev + 1);
+    // Notify parent component that time expired
+    onSubmitAnswer('');
+    setCurrentWordIndex(prev => prev + 1);
+  };
 
   const handleSubmit = () => {
-    if (userInput.trim()) {
+    if (userInput.trim() && currentWord) {
+      const isCorrect = userInput.trim().toLowerCase() === currentWord.word.toLowerCase();
+      
+      setTotalAttempts(prev => prev + 1);
+      
+      if (isCorrect) {
+        setCorrectCount(prev => prev + 1);
+        let points = 10;
+        if (hintsUsed.firstLetter) points -= 2;
+        if (hintsUsed.definition) points -= 3;
+        if (hintsUsed.sentence) points -= 3;
+        setScore(prev => prev + Math.max(points, 1));
+      }
+      
+      // Notify parent component for backend synchronization
       onSubmitAnswer(userInput.trim());
+      
       setUserInput("");
+      setCurrentWordIndex(prev => prev + 1);
     }
   };
 
@@ -90,12 +162,16 @@ export default function SpellingBeeGame({
   };
 
   const playPronunciation = () => {
-    if ('speechSynthesis' in window && gameState?.currentWord) {
-      const utterance = new SpeechSynthesisUtterance(gameState.currentWord.word);
-      utterance.rate = 0.7;
-      utterance.volume = 0.8;
-      speechSynthesis.speak(utterance);
+    if (currentWord) {
+      speakWord(currentWord.word, isMuted);
     }
+  };
+
+  const handleSkipWord = () => {
+    setTotalAttempts(prev => prev + 1);
+    // Notify parent component that word was skipped
+    onSkipWord();
+    setCurrentWordIndex(prev => prev + 1);
   };
 
   const timeProgress = ((45 - timeLeft) / 45) * 100;
@@ -109,7 +185,10 @@ export default function SpellingBeeGame({
             <div className="flex items-center space-x-4">
               <h3 className="text-2xl font-bold text-foreground" data-testid="game-title">Spelling Bee Challenge</h3>
               <div className="bg-accent/10 text-accent text-sm font-semibold px-3 py-1 rounded-full">
-                Round {gameState?.currentRound || 1} of {gameState?.totalRounds || 10}
+                Word {currentWordIndex + 1} | Score: {score}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Accuracy: {totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0}%
               </div>
             </div>
             
@@ -191,7 +270,7 @@ export default function SpellingBeeGame({
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-5 pts</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {hintsUsed.firstLetter ? "Revealed!" : "Reveal the first letter of the word"}
+                    {hintsUsed.firstLetter && currentWord ? `First letter: ${currentWord.word[0].toUpperCase()}` : "Reveal the first letter of the word"}
                   </p>
                 </Button>
 
@@ -208,7 +287,7 @@ export default function SpellingBeeGame({
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-10 pts</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {hintsUsed.definition ? "Revealed!" : "Show the word's meaning"}
+                    {hintsUsed.definition && currentWord?.definition ? currentWord.definition : "Show the word's meaning"}
                   </p>
                 </Button>
 
@@ -225,7 +304,7 @@ export default function SpellingBeeGame({
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-15 pts</span>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    {hintsUsed.sentence ? "Revealed!" : "See the word used in context"}
+                    {hintsUsed.sentence && currentWord?.exampleSentence ? currentWord.exampleSentence : "See the word used in context"}
                   </p>
                 </Button>
               </div>
@@ -236,7 +315,7 @@ export default function SpellingBeeGame({
           <div className="flex items-center justify-between">
             <Button 
               variant="ghost"
-              onClick={onSkipWord}
+              onClick={handleSkipWord}
               data-testid="button-skip-word"
             >
               <Forward className="mr-2 w-4 h-4" />
