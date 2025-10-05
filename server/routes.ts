@@ -4,6 +4,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word } from "@shared/schema";
 import { wordBank } from "../client/src/data/wordBank";
+import { getWordsCollection } from "./mongodb";
 
 interface WebSocketClient extends WebSocket {
   userId?: string;
@@ -428,6 +429,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const difficulty = req.query.difficulty as string || "intermediate";
     const word = getRandomWord(difficulty);
     res.json(word);
+  });
+
+  app.get("/api/words/batch", async (req, res) => {
+    try {
+      const count = parseInt(req.query.count as string) || 5;
+      const difficulty = req.query.difficulty as string;
+      
+      const wordsCollection = await getWordsCollection();
+      
+      const query: any = {};
+      if (difficulty) {
+        query.difficulty = difficulty;
+      }
+      
+      const words = await wordsCollection
+        .aggregate([
+          { $match: query },
+          { $sample: { size: count } }
+        ])
+        .toArray();
+      
+      res.json(words);
+    } catch (error) {
+      console.error('Error fetching words from MongoDB:', error);
+      res.status(500).json({ message: "Failed to fetch words from database" });
+    }
   });
 
   return httpServer;
