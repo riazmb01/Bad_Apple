@@ -51,6 +51,7 @@ export default function SpellingBeeGame({
     isCorrect: false,
     message: ''
   });
+  const [batchCounter, setBatchCounter] = useState(0);
 
   // Fetch initial words
   const { data: initialWords, refetch: refetchInitial } = useQuery<Word[]>({
@@ -64,9 +65,10 @@ export default function SpellingBeeGame({
   });
 
   // Fetch next batch of words (when on 4th word, which is index 3)
-  const { data: prefetchedWords, refetch: refetchNext } = useQuery<Word[]>({
-    queryKey: ['/api/words/batch', { count: 5, batch: 'prefetch', index: currentWordIndex }],
+  const { data: prefetchedWords, isFetching: isPrefetching } = useQuery<Word[]>({
+    queryKey: ['/api/words/batch', { count: 5, batch: 'prefetch', counter: batchCounter }],
     queryFn: async () => {
+      console.log('Fetching prefetch batch #', batchCounter);
       const res = await fetch('/api/words/batch?count=5');
       if (!res.ok) throw new Error('Failed to fetch words');
       return res.json();
@@ -82,10 +84,11 @@ export default function SpellingBeeGame({
   }, [initialWords]);
 
   useEffect(() => {
-    if (prefetchedWords && nextWords.length === 0) {
+    if (prefetchedWords && nextWords.length === 0 && !isPrefetching) {
+      console.log('Setting next words batch #', batchCounter, ':', prefetchedWords);
       setNextWords(prefetchedWords);
     }
-  }, [prefetchedWords]);
+  }, [prefetchedWords, isPrefetching, nextWords.length, batchCounter]);
 
   // Load next batch when current batch is exhausted
   useEffect(() => {
@@ -94,6 +97,7 @@ export default function SpellingBeeGame({
       setWords(nextWords);
       setNextWords([]);
       setCurrentWordIndex(0);
+      setBatchCounter(prev => prev + 1); // Increment for next prefetch
     } else if (currentWordIndex >= words.length && nextWords.length === 0 && words.length > 0) {
       console.log('No more words available, fetching new batch');
       // Fetch a completely new batch
@@ -103,6 +107,7 @@ export default function SpellingBeeGame({
           console.log('Fetched new batch:', data);
           setWords(data);
           setCurrentWordIndex(0);
+          setBatchCounter(prev => prev + 1); // Increment for next prefetch
         })
         .catch(err => console.error('Failed to fetch new batch:', err));
     }
