@@ -171,7 +171,11 @@ export function useGameState() {
   };
 
   const createRoom = (gameMode: string, difficulty: string, settings?: any) => {
-    sendMessage({
+    console.log('[CREATE_ROOM] Called with:', { gameMode, difficulty, settings });
+    console.log('[CREATE_ROOM] Current user:', currentUser);
+    console.log('[CREATE_ROOM] Connection state:', connectionState);
+    
+    const message = {
       type: 'create_room',
       payload: {
         hostId: currentUser.id,
@@ -180,7 +184,10 @@ export function useGameState() {
         difficulty,
         settings: settings || {}
       }
-    });
+    };
+    
+    console.log('[CREATE_ROOM] Sending message:', message);
+    sendMessage(message);
   };
 
   const joinRoom = (code: string) => {

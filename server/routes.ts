@@ -92,8 +92,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function handleWebSocketMessage(ws: WebSocketClient, message: GameMessage) {
+    console.log('[WS_MESSAGE] Received:', message.type, message.payload);
+    
     switch (message.type) {
       case 'create_room':
+        console.log('[CREATE_ROOM_HANDLER] Processing create_room request');
         await handleCreateRoom(ws, message.payload);
         break;
       case 'join_room':
@@ -126,9 +129,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   async function handleCreateRoom(ws: WebSocketClient, payload: any) {
+    console.log('[HANDLE_CREATE_ROOM] Starting with payload:', payload);
+    
     const { hostId, username, gameMode, difficulty, settings } = payload;
     
+    console.log('[HANDLE_CREATE_ROOM] Extracted values:', { hostId, username, gameMode, difficulty, settings });
+    
     try {
+      console.log('[HANDLE_CREATE_ROOM] Creating game room in storage...');
       const room = await storage.createGameRoom({
         hostId,
         gameMode,
@@ -136,6 +144,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         maxPlayers: settings?.maxPlayers || 10,
         settings: settings || {}
       });
+      
+      console.log('[HANDLE_CREATE_ROOM] Room created successfully:', room);
 
       ws.userId = hostId;
       ws.roomId = room.id;
@@ -172,6 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }));
     } catch (error) {
+      console.error('[HANDLE_CREATE_ROOM] Error creating room:', error);
       ws.send(JSON.stringify({
         type: 'error',
         payload: { message: 'Failed to create room' }

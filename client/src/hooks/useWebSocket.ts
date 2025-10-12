@@ -55,9 +55,13 @@ export function useWebSocket(url: string) {
   const sendMessage = (message: WebSocketMessage) => {
     const messageString = JSON.stringify(message);
     
+    console.log('[WEBSOCKET] sendMessage called:', { message, connectionState, hasSocket: !!socket });
+    
     if (socket && connectionState === 'connected') {
+      console.log('[WEBSOCKET] Sending message via connected socket');
       socket.send(messageString);
     } else {
+      console.log('[WEBSOCKET] Queueing message - not connected yet');
       // Queue message for when connection is established
       messageQueue.current.push(messageString);
     }
