@@ -338,7 +338,7 @@ export default function SpellingBeeGame({
                 {/* First Letter Hint */}
                 <Button 
                   variant="outline"
-                  className="text-left p-4 h-auto flex-col items-start"
+                  className="text-left p-4 h-auto flex-col items-start whitespace-normal"
                   onClick={() => handleUseHint('firstLetter')}
                   disabled={hintsUsed.firstLetter}
                   data-testid="button-hint-first-letter"
@@ -355,7 +355,7 @@ export default function SpellingBeeGame({
                 {/* Definition Hint */}
                 <Button 
                   variant="outline"
-                  className="text-left p-4 h-auto flex-col items-start"
+                  className="text-left p-4 h-auto flex-col items-start whitespace-normal"
                   onClick={() => handleUseHint('definition')}
                   disabled={hintsUsed.definition}
                   data-testid="button-hint-definition"
@@ -372,7 +372,7 @@ export default function SpellingBeeGame({
                 {/* Example Sentence Hint */}
                 <Button 
                   variant="outline"
-                  className="text-left p-4 h-auto flex-col items-start"
+                  className="text-left p-4 h-auto flex-col items-start whitespace-normal"
                   onClick={() => handleUseHint('sentence')}
                   disabled={hintsUsed.sentence}
                   data-testid="button-hint-sentence"
