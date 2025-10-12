@@ -23,16 +23,17 @@ export function useGameState() {
   useEffect(() => {
     const createUserIfNeeded = async () => {
       try {
-        // Check if user exists
-        const response = await fetch(`/api/users/${currentUser.id}`);
-        if (response.status === 404) {
-          // User doesn't exist, create them
-          await fetch('/api/users', {
+        // Check if user exists by trying to get it
+        const checkResponse = await fetch(`/api/users/${currentUser.id}`);
+        
+        if (checkResponse.status === 404) {
+          // User doesn't exist, create them (without id - it's auto-generated)
+          const createResponse = await fetch('/api/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              id: currentUser.id,
               username: currentUser.username,
+              password: 'mock-password', // Required field, not used in this demo
               level: currentUser.level,
               points: currentUser.points,
               streak: currentUser.streak,
@@ -42,10 +43,22 @@ export function useGameState() {
               bestStreak: currentUser.bestStreak
             })
           });
-          console.log('[USER] Created user in database:', currentUser.id);
+          
+          if (createResponse.ok) {
+            const createdUser = await createResponse.json();
+            console.log('[USER] Created user in database:', createdUser.id);
+            // Update current user with the database-generated ID
+            setCurrentUser(prev => ({ ...prev, id: createdUser.id }));
+          } else {
+            console.error('[USER] Failed to create user:', await createResponse.text());
+          }
+        } else if (checkResponse.ok) {
+          // User exists, make sure we have the correct data
+          const existingUser = await checkResponse.json();
+          console.log('[USER] User already exists:', existingUser.id);
         }
       } catch (error) {
-        console.error('[USER] Error creating user:', error);
+        console.error('[USER] Error managing user:', error);
       }
     };
     

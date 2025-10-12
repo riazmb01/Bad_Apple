@@ -1,0 +1,28 @@
+[Error] Failed to load resource: the server responded with a status of 404 (Not Found) (user-1, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 (Not Found) (achievements, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 (Not Found) (user-1, line 0)
+[Error] Failed to load resource: the server responded with a status of 400 (Bad Request) (users, line 0)
+[Log] [USER] Created user in database: – "user-1" (useGameState.ts, line 39)
+[Log] [CREATE_ROOM] Called with: – {gameMode: "spelling", difficulty: "beginner", settings: {maxPlayers: 10, timePerWord: 45, hintsEnabled: true}} (useGameState.ts, line 186)
+[Log] [CREATE_ROOM] Current user: – {id: "user-1", username: "John Doe", level: 7, …} (useGameState.ts, line 187)
+{id: "user-1", username: "John Doe", level: 7, points: 2450, streak: 12, …}Object
+[Log] [CREATE_ROOM] Connection state: – "connected" (useGameState.ts, line 188)
+[Log] [CREATE_ROOM] Sending message: – {type: "create_room", payload: Object} (useGameState.ts, line 199)
+{type: "create_room", payload: Object}Object
+[Log] [WEBSOCKET] sendMessage called: – {message: Object, connectionState: "connected", hasSocket: true} (useWebSocket.ts, line 41)
+{message: Object, connectionState: "connected", hasSocket: true}Object
+[Log] [WEBSOCKET] Sending message via connected socket (useWebSocket.ts, line 43)
+[Error] Game error: – "Failed to create room"
+	handleWebSocketMessage (useGameState.ts:176)
+	(anonymous function) (useGameState.ts:54)
+	commitHookEffectListMount (chunk-WERSD76P.js:16915)
+	commitPassiveMountOnFiber (chunk-WERSD76P.js:18156)
+	commitPassiveMountEffects_complete (chunk-WERSD76P.js:18129)
+	commitPassiveMountEffects_begin (chunk-WERSD76P.js:18119)
+	commitPassiveMountEffects (chunk-WERSD76P.js:18109)
+	flushPassiveEffectsImpl (chunk-WERSD76P.js:19490)
+	flushPassiveEffects (chunk-WERSD76P.js:19447)
+	(anonymous function) (chunk-WERSD76P.js:19328)
+	workLoop (chunk-WERSD76P.js:197)
+	flushWork (chunk-WERSD76P.js:176)
+	performWorkUntilDeadline (chunk-WERSD76P.js:384)
