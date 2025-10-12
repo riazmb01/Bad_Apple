@@ -357,15 +357,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function getRandomWord(difficulty: string): Promise<Word> {
     try {
       const wordsCollection = await getWordsCollection();
-      const words = await wordsCollection
+      // ex1DB doesn't have difficulty field, fetch a random word
+      const rawWords = await wordsCollection
         .aggregate([
-          { $match: { difficulty } },
-          { $sample: { size: 1 } }
+          { $sample: { size: 5 } } // Fetch extra to find one with example
         ])
         .toArray();
       
-      if (words.length > 0) {
-        return words[0] as Word;
+      if (rawWords.length > 0) {
+        // Transform using same logic as batch endpoint
+        for (const doc of rawWords) {
+          if (!doc.data?.[0]?.meanings?.[0]?.definitions) continue;
+          
+          let selectedDef = null;
+          let selectedPartOfSpeech = '';
+          
+          for (const meaning of doc.data[0].meanings) {
+            const defWithExample = meaning.definitions.find((def: any) => def.example);
+            if (defWithExample) {
+              selectedDef = defWithExample;
+              selectedPartOfSpeech = meaning.partOfSpeech || 'word';
+              break;
+            }
+          }
+          
+          if (!selectedDef) {
+            selectedDef = doc.data[0].meanings[0].definitions[0];
+            selectedPartOfSpeech = doc.data[0].meanings[0].partOfSpeech || 'word';
+          }
+          
+          if (selectedDef.definition) {
+            return {
+              id: doc._id?.toString() || doc.word,
+              word: doc.word,
+              definition: selectedDef.definition || '',
+              exampleSentence: selectedDef.example || '',
+              partOfSpeech: selectedPartOfSpeech,
+              difficulty: 'intermediate' as const,
+              pronunciation: '',
+              syllables: 0
+            } as Word;
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to fetch word from MongoDB, using fallback:', error);
@@ -456,20 +489,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const wordsCollection = await getWordsCollection();
         
-        const query: any = {};
-        if (difficulty) {
-          query.difficulty = difficulty;
-        }
-        
-        const words = await wordsCollection
+        // ex1DB doesn't have difficulty field, so we fetch random words
+        const rawWords = await wordsCollection
           .aggregate([
-            { $match: query },
-            { $sample: { size: count } }
+            { $sample: { size: count * 2 } } // Fetch extra to ensure we have enough with examples
           ])
           .toArray();
         
-        if (words.length > 0) {
-          return res.json(words);
+        // Transform ex1DB structure to game format
+        const transformedWords = rawWords
+          .map((doc: any) => {
+            if (!doc.data?.[0]?.meanings?.[0]?.definitions) return null;
+            
+            // Find first definition with an example
+            let selectedDef = null;
+            let selectedPartOfSpeech = '';
+            
+            for (const meaning of doc.data[0].meanings) {
+              const defWithExample = meaning.definitions.find((def: any) => def.example);
+              if (defWithExample) {
+                selectedDef = defWithExample;
+                selectedPartOfSpeech = meaning.partOfSpeech || 'word';
+                break;
+              }
+            }
+            
+            // If no definition with example, use first definition
+            if (!selectedDef) {
+              selectedDef = doc.data[0].meanings[0].definitions[0];
+              selectedPartOfSpeech = doc.data[0].meanings[0].partOfSpeech || 'word';
+            }
+            
+            return {
+              id: doc._id?.toString() || doc.word,
+              word: doc.word,
+              definition: selectedDef.definition || '',
+              exampleSentence: selectedDef.example || '',
+              partOfSpeech: selectedPartOfSpeech,
+              difficulty: 'intermediate' as const,
+              pronunciation: '',
+              syllables: 0
+            };
+          })
+          .filter((word: any) => word && word.definition) // Only include words with definitions
+          .slice(0, count); // Limit to requested count
+        
+        if (transformedWords.length > 0) {
+          return res.json(transformedWords);
         }
       } catch (mongoError) {
         console.error('Failed to fetch words from MongoDB, using fallback:', mongoError);
