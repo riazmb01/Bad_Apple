@@ -23,39 +23,45 @@ export function useGameState() {
   useEffect(() => {
     const createUserIfNeeded = async () => {
       try {
-        // Check if user exists by trying to get it
-        const checkResponse = await fetch(`/api/users/${currentUser.id}`);
+        // Try to create the user
+        const createResponse = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: currentUser.username,
+            password: 'mock-password', // Required field, not used in this demo
+            level: currentUser.level,
+            points: currentUser.points,
+            streak: currentUser.streak,
+            accuracy: currentUser.accuracy,
+            wordsSpelled: currentUser.wordsSpelled,
+            gamesWon: currentUser.gamesWon,
+            bestStreak: currentUser.bestStreak
+          })
+        });
         
-        if (checkResponse.status === 404) {
-          // User doesn't exist, create them (without id - it's auto-generated)
-          const createResponse = await fetch('/api/users', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              username: currentUser.username,
-              password: 'mock-password', // Required field, not used in this demo
-              level: currentUser.level,
-              points: currentUser.points,
-              streak: currentUser.streak,
-              accuracy: currentUser.accuracy,
-              wordsSpelled: currentUser.wordsSpelled,
-              gamesWon: currentUser.gamesWon,
-              bestStreak: currentUser.bestStreak
-            })
-          });
-          
-          if (createResponse.ok) {
-            const createdUser = await createResponse.json();
-            console.log('[USER] Created user in database:', createdUser.id);
-            // Update current user with the database-generated ID
-            setCurrentUser(prev => ({ ...prev, id: createdUser.id }));
+        if (createResponse.ok) {
+          // User created successfully
+          const createdUser = await createResponse.json();
+          console.log('[USER] Created user in database:', createdUser.id);
+          setCurrentUser(prev => ({ ...prev, id: createdUser.id }));
+        } else {
+          const errorData = await createResponse.json();
+          if (errorData.message === "Username already exists") {
+            // Username exists, fetch the user by username
+            console.log('[USER] Username exists, fetching user...');
+            const getUserResponse = await fetch(`/api/users/by-username/${encodeURIComponent(currentUser.username)}`);
+            
+            if (getUserResponse.ok) {
+              const existingUser = await getUserResponse.json();
+              console.log('[USER] Fetched existing user:', existingUser.id);
+              setCurrentUser(prev => ({ ...prev, id: existingUser.id }));
+            } else {
+              console.error('[USER] Failed to fetch existing user');
+            }
           } else {
-            console.error('[USER] Failed to create user:', await createResponse.text());
+            console.error('[USER] Failed to create user:', errorData);
           }
-        } else if (checkResponse.ok) {
-          // User exists, make sure we have the correct data
-          const existingUser = await checkResponse.json();
-          console.log('[USER] User already exists:', existingUser.id);
         }
       } catch (error) {
         console.error('[USER] Error managing user:', error);

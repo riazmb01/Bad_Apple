@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word } from "@shared/schema";
+import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession } from "@shared/schema";
 import { wordBank } from "../client/src/data/wordBank";
 import { getWordsCollection } from "./mongodb";
 
@@ -709,6 +709,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       res.status(400).json({ message: "Invalid user data" });
     }
+  });
+
+  app.get("/api/users/by-username/:username", async (req, res) => {
+    const user = await storage.getUserByUsername(req.params.username);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    res.json(user);
   });
 
   app.get("/api/users/:id", async (req, res) => {
