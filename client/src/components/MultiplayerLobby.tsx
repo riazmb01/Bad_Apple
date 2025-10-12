@@ -86,20 +86,23 @@ export default function MultiplayerLobby({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                {playersToShow.map((player) => (
-                  <div key={player.userId} className="flex items-center space-x-3 p-3 bg-muted/30 rounded-lg" data-testid={`player-${player.userId}`}>
-                    <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                      <span className="text-sm font-semibold text-primary-foreground">{player.avatar}</span>
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-foreground">{player.username}</div>
-                      <div className={`text-sm ${player.isReady ? 'text-muted-foreground' : 'text-orange-600'}`}>
-                        {player.isReady ? 'Ready to play' : 'Joining...'}
+                {playersToShow.map((player) => {
+                  const isDisconnected = player.isConnected === false;
+                  return (
+                    <div key={player.userId} className={`flex items-center space-x-3 p-3 rounded-lg ${isDisconnected ? 'bg-muted/10 opacity-60' : 'bg-muted/30'}`} data-testid={`player-${player.userId}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDisconnected ? 'bg-muted' : 'bg-primary'}`}>
+                        <span className={`text-sm font-semibold ${isDisconnected ? 'text-muted-foreground' : 'text-primary-foreground'}`}>{player.avatar}</span>
                       </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-foreground">{player.username}</div>
+                        <div className={`text-sm ${isDisconnected ? 'text-orange-600' : player.isReady ? 'text-muted-foreground' : 'text-orange-600'}`}>
+                          {isDisconnected ? 'Disconnected - Reconnecting...' : player.isReady ? 'Ready to play' : 'Joining...'}
+                        </div>
+                      </div>
+                      <div className={`w-3 h-3 rounded-full ${isDisconnected ? 'bg-orange-500 pulse-animation' : player.isReady ? 'bg-green-500' : 'bg-orange-500 pulse-animation'}`}></div>
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${player.isReady ? 'bg-green-500' : 'bg-orange-500 pulse-animation'}`}></div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="flex items-center justify-between pt-4 border-t border-border">

@@ -131,6 +131,8 @@ export class MemStorage implements IStorage {
       hintsUsed: 0,
       timeElapsed: 0,
       isComplete: false,
+      isConnected: true,
+      disconnectedAt: null,
       createdAt: new Date(),
       ...insertSession,
     };

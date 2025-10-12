@@ -42,6 +42,8 @@ export const gameSessions = pgTable("game_sessions", {
   hintsUsed: integer("hints_used").default(0),
   timeElapsed: integer("time_elapsed").default(0),
   isComplete: boolean("is_complete").default(false),
+  isConnected: boolean("is_connected").default(true),
+  disconnectedAt: timestamp("disconnected_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

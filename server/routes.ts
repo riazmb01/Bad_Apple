@@ -175,6 +175,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
+    ws.userId = userId;
+    ws.roomId = room.id;
+    ws.username = username;
+
+    // Check if player has existing session (reconnection)
+    const sessions = await storage.getGameSessionsByRoom(room.id);
+    const existingSession = sessions.find(s => s.userId === userId);
+    
+    if (existingSession && !existingSession.isConnected) {
+      // Reconnection - restore player's session
+      await storage.updateGameSession(existingSession.id, {
+        isConnected: true,
+        disconnectedAt: null
+      });
+
+      // Get updated player list
+      const updatedSessions = await storage.getGameSessionsByRoom(room.id);
+      const players = await getPlayerList(updatedSessions);
+
+      // Broadcast reconnection
+      broadcastToRoom(room.id, {
+        type: 'player_reconnected',
+        payload: { userId, username, players }
+      });
+
+      // Send room info to reconnecting player
+      ws.send(JSON.stringify({
+        type: 'room_joined',
+        payload: { 
+          room,
+          isHost: room.hostId === userId,
+          players,
+          gameState: room.gameState
+        }
+      }));
+      return;
+    }
+
+    // New player joining
     if ((room.currentPlayers || 0) >= (room.maxPlayers || 10)) {
       ws.send(JSON.stringify({
         type: 'error',
@@ -191,10 +230,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
-    ws.userId = userId;
-    ws.roomId = room.id;
-    ws.username = username;
-
     // Update room player count
     await storage.updateGameRoom(room.id, {
       currentPlayers: (room.currentPlayers || 0) + 1
@@ -207,33 +242,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     // Get all current players in the room
-    const sessions = await storage.getGameSessionsByRoom(room.id);
-    const players = await Promise.all(
-      sessions.map(async (session) => {
-        const client = Array.from(wss.clients).find(
-          (c) => (c as WebSocketClient).userId === session.userId
-        ) as WebSocketClient | undefined;
-        
-        return {
-          userId: session.userId,
-          username: client?.username || 'Player',
-          avatar: getAvatarInitials(client?.username || 'Player'),
-          score: session.score || 0,
-          isReady: false,
-          isActive: true,
-          hintsUsed: session.hintsUsed || 0
-        };
-      })
-    );
+    const updatedSessions = await storage.getGameSessionsByRoom(room.id);
+    const players = await getPlayerList(updatedSessions);
 
     // Broadcast to room that new player joined
     broadcastToRoom(room.id, {
       type: 'player_joined',
-      payload: { 
-        userId, 
-        username,
-        players 
-      }
+      payload: { userId, username, players }
     });
 
     // Send room info to joining player
@@ -257,22 +272,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const room = await storage.getGameRoom(roomId);
     if (!room) return;
 
-    // Find and delete the player's game session
+    // Find and mark the player as disconnected
     const sessions = await storage.getGameSessionsByRoom(roomId);
     const userSession = sessions.find(s => s.userId === userId);
     if (userSession) {
-      await storage.deleteGameSession(userSession.id);
+      await storage.updateGameSession(userSession.id, {
+        isConnected: false,
+        disconnectedAt: new Date()
+      });
+
+      // Set timeout to remove player after 2 minutes if they don't reconnect
+      setTimeout(async () => {
+        const session = await storage.getGameSession(userSession.id);
+        if (session && !session.isConnected) {
+          await storage.deleteGameSession(userSession.id);
+          
+          // Update room player count
+          await storage.updateGameRoom(roomId, {
+            currentPlayers: Math.max(0, (room.currentPlayers || 0) - 1)
+          });
+
+          // Broadcast player removed
+          const remainingSessions = await storage.getGameSessionsByRoom(roomId);
+          const players = await getPlayerList(remainingSessions);
+          broadcastToRoom(roomId, {
+            type: 'player_removed',
+            payload: { userId, players }
+          });
+        }
+      }, 120000); // 2 minutes
     }
 
-    // Update room player count
-    await storage.updateGameRoom(roomId, {
-      currentPlayers: Math.max(0, (room.currentPlayers || 0) - 1)
-    });
-
-    // Get updated player list after removal
+    // Get updated player list including disconnected players
     const updatedSessions = await storage.getGameSessionsByRoom(roomId);
-    const players = await Promise.all(
-      updatedSessions.map(async (session) => {
+    const players = await getPlayerList(updatedSessions);
+
+    // Broadcast disconnection
+    broadcastToRoom(roomId, {
+      type: 'player_disconnected',
+      payload: { userId, players }
+    });
+  }
+
+  async function getPlayerList(sessions: GameSession[]) {
+    return Promise.all(
+      sessions.map(async (session) => {
         const client = Array.from(wss.clients).find(
           (c) => (c as WebSocketClient).userId === session.userId
         ) as WebSocketClient | undefined;
@@ -283,17 +327,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           avatar: getAvatarInitials(client?.username || 'Player'),
           score: session.score || 0,
           isReady: false,
-          isActive: true,
+          isActive: session.isConnected || false,
+          isConnected: session.isConnected || false,
           hintsUsed: session.hintsUsed || 0
         };
       })
     );
-
-    // Broadcast to room with updated player list
-    broadcastToRoom(roomId, {
-      type: 'player_left',
-      payload: { userId, players }
-    });
   }
 
   async function handleStartGame(ws: WebSocketClient, payload: any) {

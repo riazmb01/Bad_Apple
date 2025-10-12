@@ -29,6 +29,37 @@ export function useGameState() {
     }
   }, [lastMessage]);
 
+  // Reset room state on disconnect
+  useEffect(() => {
+    if (connectionState === 'disconnected') {
+      setIsInRoom(false);
+    }
+  }, [connectionState]);
+
+  // Auto-rejoin on reconnection
+  useEffect(() => {
+    if (connectionState === 'connected' && !isInRoom) {
+      const storedRoom = localStorage.getItem('currentRoom');
+      if (storedRoom) {
+        try {
+          const roomData = JSON.parse(storedRoom);
+          // Auto-rejoin the room
+          sendMessage({
+            type: 'join_room',
+            payload: {
+              roomCode: roomData.roomCode,
+              userId: roomData.userId,
+              username: roomData.username
+            }
+          });
+        } catch (error) {
+          console.error('Error parsing stored room data:', error);
+          localStorage.removeItem('currentRoom');
+        }
+      }
+    }
+  }, [connectionState, isInRoom]);
+
   const handleWebSocketMessage = (message: any) => {
     switch (message.type) {
       case 'room_created':
@@ -46,6 +77,12 @@ export function useGameState() {
         if (message.payload.players) {
           setConnectedPlayers(message.payload.players);
         }
+        // Store room info for reconnection
+        localStorage.setItem('currentRoom', JSON.stringify({
+          roomCode: message.payload.room.code,
+          userId: currentUser.id,
+          username: currentUser.username
+        }));
         break;
       case 'player_joined':
         if (message.payload.players) {
@@ -69,6 +106,21 @@ export function useGameState() {
           setConnectedPlayers(prev => 
             prev.filter(p => p.userId !== message.payload.userId)
           );
+        }
+        break;
+      case 'player_disconnected':
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        }
+        break;
+      case 'player_reconnected':
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        }
+        break;
+      case 'player_removed':
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
         }
         break;
       case 'settings_updated':
@@ -140,6 +192,7 @@ export function useGameState() {
     setConnectedPlayers([]);
     setGameState(null);
     setGameResults(null);
+    localStorage.removeItem('currentRoom');
   };
 
   const startGame = () => {
