@@ -40,7 +40,7 @@ export async function connectToMongoDB(): Promise<Db> {
 
 export async function getWordsCollection(): Promise<Collection> {
   const database = await connectToMongoDB();
-  return database.collection('words');
+  return database.collection('wordDB');
 }
 
 export async function closeMongoDB(): Promise<void> {
