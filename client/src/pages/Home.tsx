@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 
-type GameMode = 'menu' | 'spelling' | 'grammar' | 'multiplayer' | 'join_room';
+type GameMode = 'menu' | 'spelling' | 'grammar' | 'multiplayer' | 'join_room' | 'create_room';
 
 export default function Home() {
   const [currentMode, setCurrentMode] = useState<GameMode>('menu');
   const [joinCode, setJoinCode] = useState("");
+  const [isHost, setIsHost] = useState(false);
   
   const {
     gameState,
@@ -24,12 +25,14 @@ export default function Home() {
     isInRoom,
     connectedPlayers,
     connectionState,
+    createRoom,
     joinRoom,
     leaveRoom,
     startGame,
     submitAnswer,
     useHint,
-    markPlayerReady
+    markPlayerReady,
+    updateSettings
   } = useGameState();
 
   const handleSelectMode = (mode: 'spelling' | 'grammar' | 'multiplayer') => {
@@ -40,9 +43,20 @@ export default function Home() {
     }
   };
 
+  const handleCreateRoom = (gameMode: string, difficulty: string) => {
+    createRoom(gameMode, difficulty, {
+      maxPlayers: 10,
+      timePerWord: 45,
+      hintsEnabled: true
+    });
+    setIsHost(true);
+    setCurrentMode('multiplayer');
+  };
+
   const handleJoinRoom = () => {
     if (joinCode.trim()) {
       joinRoom(joinCode.trim());
+      setIsHost(false);
       setCurrentMode('multiplayer');
     }
   };
@@ -51,6 +65,7 @@ export default function Home() {
     if (isInRoom) {
       leaveRoom();
     }
+    setIsHost(false);
     setCurrentMode('menu');
   };
 
@@ -94,32 +109,86 @@ export default function Home() {
         {/* Join Room Interface */}
         {currentMode === 'join_room' && (
           <section className="mb-12">
-            <Card className="max-w-md mx-auto">
-              <CardContent className="p-8 text-center">
-                <h2 className="text-2xl font-bold text-foreground mb-6">Join Classroom Battle</h2>
-                <div className="space-y-4">
-                  <Input
-                    type="text"
-                    placeholder="Enter room code (e.g., SPELL-1234)"
-                    value={joinCode}
-                    onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                    className="text-center font-mono"
-                    data-testid="input-join-room-code"
-                  />
-                  <Button 
-                    onClick={handleJoinRoom}
-                    disabled={!joinCode.trim() || connectionState !== 'connected'}
-                    className="w-full"
-                    data-testid="button-join-room"
-                  >
-                    {connectionState === 'connecting' ? 'Connecting...' : 'Join Room'}
-                  </Button>
-                </div>
-                <p className="text-sm text-muted-foreground mt-4">
-                  Ask your teacher for the room code
-                </p>
-              </CardContent>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              {/* Join Existing Room */}
+              <Card>
+                <CardContent className="p-8">
+                  <h2 className="text-xl font-bold text-foreground mb-4 text-center">Join a Room</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-muted-foreground block mb-2">Room Code</label>
+                      <Input
+                        type="text"
+                        placeholder="SPELL-1234"
+                        value={joinCode}
+                        onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                        className="text-center font-mono"
+                        data-testid="input-join-room-code"
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleJoinRoom}
+                      disabled={!joinCode.trim() || connectionState !== 'connected'}
+                      className="w-full"
+                      data-testid="button-join-room"
+                    >
+                      {connectionState === 'connecting' ? 'Connecting...' : 'Join Room'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Ask your teacher for the room code
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Create New Room */}
+              <Card>
+                <CardContent className="p-8">
+                  <h2 className="text-xl font-bold text-foreground mb-4 text-center">Create a Room</h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-muted-foreground block mb-2">Game Mode</label>
+                      <select 
+                        id="create-game-mode"
+                        className="w-full p-2 border rounded-md bg-background"
+                        data-testid="select-create-game-mode"
+                      >
+                        <option value="spelling">Spelling Bee</option>
+                        <option value="grammar">Grammar Mastery</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground block mb-2">Difficulty</label>
+                      <select 
+                        id="create-difficulty"
+                        className="w-full p-2 border rounded-md bg-background"
+                        data-testid="select-create-difficulty"
+                      >
+                        <option value="beginner">Beginner (1st-3rd Grade)</option>
+                        <option value="intermediate">Intermediate (4th-6th Grade)</option>
+                        <option value="advanced">Advanced (7th-9th Grade)</option>
+                        <option value="expert">Expert (10th+ Grade)</option>
+                      </select>
+                    </div>
+                    <Button 
+                      onClick={() => {
+                        const gameMode = (document.getElementById('create-game-mode') as HTMLSelectElement).value;
+                        const difficulty = (document.getElementById('create-difficulty') as HTMLSelectElement).value;
+                        handleCreateRoom(gameMode, difficulty);
+                      }}
+                      disabled={connectionState !== 'connected'}
+                      className="w-full"
+                      data-testid="button-create-room"
+                    >
+                      Create Room
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      You'll be the host and get a room code to share
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </section>
         )}
 
@@ -149,9 +218,10 @@ export default function Home() {
           <MultiplayerLobby
             roomCode={roomCode}
             connectedPlayers={connectedPlayers}
-            isHost={false} // For now, assume not host
+            isHost={isHost}
             onStartGame={startGame}
             onLeaveRoom={handleBackToMenu}
+            onUpdateSettings={updateSettings}
           />
         )}
 

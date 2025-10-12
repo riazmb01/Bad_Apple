@@ -53,6 +53,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 
 export const insertGameRoomSchema = createInsertSchema(gameRooms).omit({
   id: true,
+  code: true,
   createdAt: true,
   currentPlayers: true,
 });

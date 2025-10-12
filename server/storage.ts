@@ -22,6 +22,7 @@ export interface IStorage {
   getGameSession(id: string): Promise<GameSession | undefined>;
   getGameSessionsByRoom(roomId: string): Promise<GameSession[]>;
   updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined>;
+  deleteGameSession(id: string): Promise<boolean>;
 
   // Leaderboard operations
   getLeaderboard(limit?: number): Promise<User[]>;
@@ -156,6 +157,10 @@ export class MemStorage implements IStorage {
     return updatedSession;
   }
 
+  async deleteGameSession(id: string): Promise<boolean> {
+    return this.gameSessions.delete(id);
+  }
+
   // Leaderboard operations
   async getLeaderboard(limit: number = 10): Promise<User[]> {
     return Array.from(this.users.values())
@@ -287,6 +292,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(gameSessions.id, id))
       .returning();
     return session || undefined;
+  }
+
+  async deleteGameSession(id: string): Promise<boolean> {
+    const result = await db.delete(gameSessions).where(eq(gameSessions.id, id));
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Leaderboard operations

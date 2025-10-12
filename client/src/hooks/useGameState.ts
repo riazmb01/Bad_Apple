@@ -30,25 +30,46 @@ export function useGameState() {
 
   const handleWebSocketMessage = (message: any) => {
     switch (message.type) {
+      case 'room_created':
+        setIsInRoom(true);
+        setRoomCode(message.payload.room.code);
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        }
+        break;
       case 'room_joined':
         setIsInRoom(true);
         setRoomCode(message.payload.room.code);
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        }
         break;
       case 'player_joined':
-        const newPlayer: PlayerState = {
-          userId: message.payload.userId,
-          username: message.payload.username,
-          score: 0,
-          isReady: false,
-          isActive: true,
-          hintsUsed: 0
-        };
-        setConnectedPlayers(prev => [...prev, newPlayer]);
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        } else {
+          const newPlayer: PlayerState = {
+            userId: message.payload.userId,
+            username: message.payload.username,
+            score: 0,
+            isReady: false,
+            isActive: true,
+            hintsUsed: 0
+          };
+          setConnectedPlayers(prev => [...prev, newPlayer]);
+        }
         break;
       case 'player_left':
-        setConnectedPlayers(prev => 
-          prev.filter(p => p.userId !== message.payload.userId)
-        );
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        } else {
+          setConnectedPlayers(prev => 
+            prev.filter(p => p.userId !== message.payload.userId)
+          );
+        }
+        break;
+      case 'settings_updated':
+        // Settings updated by host
         break;
       case 'game_started':
         setGameState(message.payload.gameState);
@@ -79,6 +100,19 @@ export function useGameState() {
     }
   };
 
+  const createRoom = (gameMode: string, difficulty: string, settings?: any) => {
+    sendMessage({
+      type: 'create_room',
+      payload: {
+        hostId: currentUser.id,
+        username: currentUser.username,
+        gameMode,
+        difficulty,
+        settings: settings || {}
+      }
+    });
+  };
+
   const joinRoom = (code: string) => {
     sendMessage({
       type: 'join_room',
@@ -105,6 +139,13 @@ export function useGameState() {
     sendMessage({
       type: 'start_game',
       payload: { roomCode }
+    });
+  };
+
+  const updateSettings = (settings: any) => {
+    sendMessage({
+      type: 'update_settings',
+      payload: { settings }
     });
   };
 
@@ -137,11 +178,13 @@ export function useGameState() {
     isInRoom,
     connectedPlayers,
     connectionState,
+    createRoom,
     joinRoom,
     leaveRoom,
     startGame,
     submitAnswer,
     useHint,
-    markPlayerReady
+    markPlayerReady,
+    updateSettings
   };
 }

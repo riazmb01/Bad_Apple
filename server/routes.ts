@@ -48,8 +48,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Helper function to generate avatar initials from username
+  function getAvatarInitials(name: string): string {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  }
+
   async function handleWebSocketMessage(ws: WebSocketClient, message: GameMessage) {
     switch (message.type) {
+      case 'create_room':
+        await handleCreateRoom(ws, message.payload);
+        break;
       case 'join_room':
         await handleJoinRoom(ws, message.payload);
         break;
@@ -68,12 +76,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
       case 'player_ready':
         await handlePlayerReady(ws, message.payload);
         break;
+      case 'update_settings':
+        await handleUpdateSettings(ws, message.payload);
+        break;
       default:
         ws.send(JSON.stringify({
           type: 'error',
           payload: { message: 'Unknown message type' }
         }));
     }
+  }
+
+  async function handleCreateRoom(ws: WebSocketClient, payload: any) {
+    const { hostId, username, gameMode, difficulty, settings } = payload;
+    
+    try {
+      const room = await storage.createGameRoom({
+        hostId,
+        gameMode,
+        difficulty,
+        maxPlayers: settings?.maxPlayers || 10,
+        settings: settings || {}
+      });
+
+      ws.userId = hostId;
+      ws.roomId = room.id;
+      ws.username = username;
+
+      // Host automatically joins their own room
+      await storage.updateGameRoom(room.id, {
+        currentPlayers: 1
+      });
+
+      // Create game session for host
+      await storage.createGameSession({
+        roomId: room.id,
+        userId: hostId
+      });
+
+      // Build host player data with avatar
+      const players = [{
+        userId: hostId,
+        username: username,
+        avatar: getAvatarInitials(username),
+        score: 0,
+        isReady: false,
+        isActive: true,
+        hintsUsed: 0
+      }];
+
+      ws.send(JSON.stringify({
+        type: 'room_created',
+        payload: { 
+          room,
+          isHost: true,
+          players
+        }
+      }));
+    } catch (error) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        payload: { message: 'Failed to create room' }
+      }));
+    }
+  }
+
+  async function handleUpdateSettings(ws: WebSocketClient, payload: any) {
+    if (!ws.roomId) return;
+
+    const room = await storage.getGameRoom(ws.roomId);
+    if (!room || room.hostId !== ws.userId) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        payload: { message: 'Not authorized to update settings' }
+      }));
+      return;
+    }
+
+    await storage.updateGameRoom(room.id, {
+      settings: payload.settings
+    });
+
+    broadcastToRoom(room.id, {
+      type: 'settings_updated',
+      payload: { settings: payload.settings }
+    });
   }
 
   async function handleJoinRoom(ws: WebSocketClient, payload: any) {
@@ -96,6 +183,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
+    if (room.isActive) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        payload: { message: 'Game already in progress' }
+      }));
+      return;
+    }
+
     ws.userId = userId;
     ws.roomId = room.id;
     ws.username = username;
@@ -111,15 +206,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       userId: userId
     });
 
-    // Broadcast to room
+    // Get all current players in the room
+    const sessions = await storage.getGameSessionsByRoom(room.id);
+    const players = await Promise.all(
+      sessions.map(async (session) => {
+        const client = Array.from(wss.clients).find(
+          (c) => (c as WebSocketClient).userId === session.userId
+        ) as WebSocketClient | undefined;
+        
+        return {
+          userId: session.userId,
+          username: client?.username || 'Player',
+          avatar: getAvatarInitials(client?.username || 'Player'),
+          score: session.score || 0,
+          isReady: false,
+          isActive: true,
+          hintsUsed: session.hintsUsed || 0
+        };
+      })
+    );
+
+    // Broadcast to room that new player joined
     broadcastToRoom(room.id, {
       type: 'player_joined',
-      payload: { userId, username }
+      payload: { 
+        userId, 
+        username,
+        players 
+      }
     });
 
+    // Send room info to joining player
     ws.send(JSON.stringify({
       type: 'room_joined',
-      payload: { room }
+      payload: { 
+        room,
+        isHost: room.hostId === userId,
+        players
+      }
     }));
   }
 
@@ -133,15 +257,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const room = await storage.getGameRoom(roomId);
     if (!room) return;
 
+    // Find and delete the player's game session
+    const sessions = await storage.getGameSessionsByRoom(roomId);
+    const userSession = sessions.find(s => s.userId === userId);
+    if (userSession) {
+      await storage.deleteGameSession(userSession.id);
+    }
+
     // Update room player count
     await storage.updateGameRoom(roomId, {
       currentPlayers: Math.max(0, (room.currentPlayers || 0) - 1)
     });
 
-    // Broadcast to room
+    // Get updated player list after removal
+    const updatedSessions = await storage.getGameSessionsByRoom(roomId);
+    const players = await Promise.all(
+      updatedSessions.map(async (session) => {
+        const client = Array.from(wss.clients).find(
+          (c) => (c as WebSocketClient).userId === session.userId
+        ) as WebSocketClient | undefined;
+        
+        return {
+          userId: session.userId,
+          username: client?.username || 'Player',
+          avatar: getAvatarInitials(client?.username || 'Player'),
+          score: session.score || 0,
+          isReady: false,
+          isActive: true,
+          hintsUsed: session.hintsUsed || 0
+        };
+      })
+    );
+
+    // Broadcast to room with updated player list
     broadcastToRoom(roomId, {
       type: 'player_left',
-      payload: { userId }
+      payload: { userId, players }
     });
   }
 

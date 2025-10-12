@@ -14,6 +14,7 @@ interface MultiplayerLobbyProps {
   isHost: boolean;
   onStartGame: () => void;
   onLeaveRoom: () => void;
+  onUpdateSettings?: (settings: any) => void;
 }
 
 export default function MultiplayerLobby({ 
@@ -21,7 +22,8 @@ export default function MultiplayerLobby({
   connectedPlayers, 
   isHost, 
   onStartGame, 
-  onLeaveRoom 
+  onLeaveRoom,
+  onUpdateSettings
 }: MultiplayerLobbyProps) {
   const [gameSettings, setGameSettings] = useState({
     difficulty: "intermediate",
@@ -31,6 +33,24 @@ export default function MultiplayerLobby({
   });
 
   const { toast } = useToast();
+
+  const updateSetting = (key: string, value: any) => {
+    if (!isHost) {
+      toast({
+        title: "Permission denied",
+        description: "Only the host can change game settings.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const newSettings = { ...gameSettings, [key]: value };
+    setGameSettings(newSettings);
+    
+    if (onUpdateSettings) {
+      onUpdateSettings(newSettings);
+    }
+  };
 
   const copyRoomCode = async () => {
     try {
@@ -48,15 +68,7 @@ export default function MultiplayerLobby({
     }
   };
 
-  // Mock players for demonstration
-  const mockPlayers = [
-    { userId: "1", username: "John Smith", isReady: true, avatar: "JS" },
-    { userId: "2", username: "Emma Davis", isReady: true, avatar: "ED" },
-    { userId: "3", username: "Mike Brown", isReady: false, avatar: "MB" },
-    { userId: "4", username: "Lisa Johnson", isReady: true, avatar: "LJ" }
-  ];
-
-  const playersToShow = connectedPlayers.length > 0 ? connectedPlayers : mockPlayers;
+  const playersToShow = connectedPlayers;
 
   return (
     <section className="mb-12" data-testid="multiplayer-lobby">
@@ -134,7 +146,8 @@ export default function MultiplayerLobby({
                   </Label>
                   <Select 
                     value={gameSettings.difficulty} 
-                    onValueChange={(value) => setGameSettings(prev => ({ ...prev, difficulty: value }))}
+                    onValueChange={(value) => updateSetting('difficulty', value)}
+                    disabled={!isHost}
                   >
                     <SelectTrigger data-testid="select-difficulty">
                       <SelectValue />
@@ -155,7 +168,8 @@ export default function MultiplayerLobby({
                   </Label>
                   <Select 
                     value={gameSettings.competitionType} 
-                    onValueChange={(value) => setGameSettings(prev => ({ ...prev, competitionType: value }))}
+                    onValueChange={(value) => updateSetting('competitionType', value)}
+                    disabled={!isHost}
                   >
                     <SelectTrigger data-testid="select-competition-type">
                       <SelectValue />
@@ -176,7 +190,8 @@ export default function MultiplayerLobby({
                   </Label>
                   <Select 
                     value={gameSettings.timeLimit} 
-                    onValueChange={(value) => setGameSettings(prev => ({ ...prev, timeLimit: value }))}
+                    onValueChange={(value) => updateSetting('timeLimit', value)}
+                    disabled={!isHost}
                   >
                     <SelectTrigger data-testid="select-time-limit">
                       <SelectValue />
@@ -195,11 +210,12 @@ export default function MultiplayerLobby({
                   <Checkbox 
                     id="hintsEnabled" 
                     checked={gameSettings.hintsEnabled}
-                    onCheckedChange={(checked) => setGameSettings(prev => ({ ...prev, hintsEnabled: !!checked }))}
+                    onCheckedChange={(checked) => updateSetting('hintsEnabled', !!checked)}
+                    disabled={!isHost}
                     data-testid="checkbox-hints-enabled"
                   />
                   <Label htmlFor="hintsEnabled" className="text-sm font-medium text-foreground">
-                    Enable Hints
+                    Enable Hints {!isHost && "(Host only)"}
                   </Label>
                 </div>
               </div>
