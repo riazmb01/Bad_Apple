@@ -45,6 +45,7 @@ export function useGameState() {
           const createdUser = await createResponse.json();
           console.log('[USER] Created user in database:', createdUser.id);
           setCurrentUser(prev => ({ ...prev, id: createdUser.id }));
+          setIsUserReady(true);
         } else {
           const errorData = await createResponse.json();
           if (errorData.message === "Username already exists") {
@@ -56,15 +57,19 @@ export function useGameState() {
               const existingUser = await getUserResponse.json();
               console.log('[USER] Fetched existing user:', existingUser.id);
               setCurrentUser(prev => ({ ...prev, id: existingUser.id }));
+              setIsUserReady(true);
             } else {
               console.error('[USER] Failed to fetch existing user');
+              setIsUserReady(true); // Still set ready to unblock UI
             }
           } else {
             console.error('[USER] Failed to create user:', errorData);
+            setIsUserReady(true); // Still set ready to unblock UI
           }
         }
       } catch (error) {
         console.error('[USER] Error managing user:', error);
+        setIsUserReady(true); // Still set ready to unblock UI
       }
     };
     
@@ -74,6 +79,7 @@ export function useGameState() {
   const [isInRoom, setIsInRoom] = useState(false);
   const [connectedPlayers, setConnectedPlayers] = useState<PlayerState[]>([]);
   const [gameResults, setGameResults] = useState<any>(null);
+  const [isUserReady, setIsUserReady] = useState(false);
 
   const { connectionState, lastMessage, sendMessage } = useWebSocket("/ws");
 
@@ -225,7 +231,17 @@ export function useGameState() {
   const createRoom = (gameMode: string, difficulty: string, settings?: any) => {
     console.log('[CREATE_ROOM] Called with:', { gameMode, difficulty, settings });
     console.log('[CREATE_ROOM] Current user:', currentUser);
+    console.log('[CREATE_ROOM] User ready:', isUserReady);
     console.log('[CREATE_ROOM] Connection state:', connectionState);
+    
+    if (!isUserReady) {
+      toast({
+        title: "Please wait",
+        description: "Loading user data...",
+        variant: "default"
+      });
+      return;
+    }
     
     const message = {
       type: 'create_room',
@@ -346,6 +362,7 @@ export function useGameState() {
     submitAnswer,
     useHint,
     markPlayerReady,
-    updateSettings
+    updateSettings,
+    isUserReady
   };
 }
