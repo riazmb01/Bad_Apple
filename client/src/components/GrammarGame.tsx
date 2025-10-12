@@ -272,23 +272,26 @@ export default function GrammarGame({
   onPauseGame 
 }: GrammarGameProps) {
   const [selectedAnswer, setSelectedAnswer] = useState("");
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(grammarQuestions[0]);
-  const [timeLeft, setTimeLeft] = useState(gameState?.timeLeft || 60);
+  const [timeLeft, setTimeLeft] = useState(60);
   const [showExplanation, setShowExplanation] = useState(false);
   const timeoutRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [isTimedOutRound, setIsTimedOutRound] = useState(false);
+  const [localScore, setLocalScore] = useState(0);
+  const [localCorrectAnswers, setLocalCorrectAnswers] = useState(0);
 
-  // Reset on round changes only
+  // Update question when index changes
   useEffect(() => {
+    const nextQuestion = grammarQuestions[currentQuestionIndex % grammarQuestions.length];
+    setCurrentQuestion(nextQuestion);
     timeoutRef.current = false;
     setIsTimedOutRound(false);
     setShowExplanation(false);
     setSelectedAnswer('');
-    // Move to next question based on round
-    const nextIndex = ((gameState?.currentRound || 1) - 1) % grammarQuestions.length;
-    setCurrentQuestion(grammarQuestions[nextIndex]);
-  }, [gameState?.currentRound]);
+    setTimeLeft(60);
+  }, [currentQuestionIndex]);
   
   // Sync timeLeft when it changes
   useEffect(() => {
@@ -302,12 +305,12 @@ export default function GrammarGame({
     
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev: number) => {
-        if (prev <= 1 && !timeoutRef.current) {
+        if (prev <= 1 && !timeoutRef.current && !showExplanation) {
           // Time's up - show explanation without marking as correct
           timeoutRef.current = true;
           setIsTimedOutRound(true);
           setShowExplanation(true);
-          onSubmitAnswer(''); // Let parent handle advancing
+          onSubmitAnswer(''); // Notify parent
           // Stop interval after timeout
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -324,17 +327,30 @@ export default function GrammarGame({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [gameState?.currentRound]);
+  }, [currentQuestionIndex, showExplanation]);
+  
+  // Clear timer when explanation is shown
+  useEffect(() => {
+    if (showExplanation && intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, [showExplanation]);
 
   const handleSubmit = () => {
     if (selectedAnswer) {
+      const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+      if (isCorrect) {
+        setLocalScore(prev => prev + 100);
+        setLocalCorrectAnswers(prev => prev + 1);
+      }
       onSubmitAnswer(selectedAnswer);
       setShowExplanation(true);
     }
   };
 
   const handleNextQuestion = () => {
-    onSkipWord(); // Reuse skip functionality to move to next question
+    setCurrentQuestionIndex(prev => prev + 1);
   };
 
   const handleSkip = () => {
@@ -375,7 +391,7 @@ export default function GrammarGame({
             <div className="flex items-center space-x-4">
               <h3 className="text-2xl font-bold text-foreground" data-testid="game-title">Grammar Mastery Challenge</h3>
               <div className="bg-green-100 text-green-800 text-sm font-semibold px-3 py-1 rounded-full" data-testid="question-progress">
-                Question {gameState?.currentRound || 1} of {gameState?.totalRounds || 10}
+                Question {currentQuestionIndex + 1} of 10
               </div>
               <div className={`text-xs font-semibold px-3 py-1 rounded-full ${getQuestionTypeColor(currentQuestion.type)}`} data-testid="question-type">
                 {getQuestionTypeLabel(currentQuestion.type)}
