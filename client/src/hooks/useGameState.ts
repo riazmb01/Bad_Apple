@@ -5,18 +5,40 @@ import { useToast } from "@/hooks/use-toast";
 
 export function useGameState() {
   const { toast } = useToast();
+  
+  // Generate or retrieve unique player ID from localStorage
+  const getOrCreatePlayerId = () => {
+    let playerId = localStorage.getItem('playerId');
+    if (!playerId) {
+      playerId = crypto.randomUUID();
+      localStorage.setItem('playerId', playerId);
+    }
+    return playerId;
+  };
+
+  const generateDisplayName = (playerId: string) => {
+    // Create a readable display name from the player ID
+    // Format: "Player-ABC123" where ABC123 is first 6 chars of UUID
+    const shortId = playerId.slice(0, 6).toUpperCase();
+    return `Player-${shortId}`;
+  };
+
+  const playerId = getOrCreatePlayerId();
+  const displayName = generateDisplayName(playerId);
+  
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState | null>(null);
+  const [dbUserId, setDbUserId] = useState<string | null>(null); // Database user ID
   const [currentUser, setCurrentUser] = useState({
-    id: "user-1",
-    username: "John Doe",
-    level: 7,
-    points: 2450,
-    streak: 12,
-    accuracy: 92,
-    wordsSpelled: 487,
-    gamesWon: 23,
-    bestStreak: 18
+    id: playerId, // Use the unique player ID instead of "user-1"
+    username: displayName,
+    level: 1,
+    points: 0,
+    streak: 0,
+    accuracy: 0,
+    wordsSpelled: 0,
+    gamesWon: 0,
+    bestStreak: 0
   });
 
   // Auto-create user in database if they don't exist
@@ -44,7 +66,8 @@ export function useGameState() {
           // User created successfully
           const createdUser = await createResponse.json();
           console.log('[USER] Created user in database:', createdUser.id);
-          setCurrentUser(prev => ({ ...prev, id: createdUser.id }));
+          // Don't overwrite currentUser.id - keep it as the stable localStorage UUID
+          setDbUserId(createdUser.id);
           setIsUserReady(true);
         } else {
           const errorData = await createResponse.json();
@@ -56,7 +79,8 @@ export function useGameState() {
             if (getUserResponse.ok) {
               const existingUser = await getUserResponse.json();
               console.log('[USER] Fetched existing user:', existingUser.id);
-              setCurrentUser(prev => ({ ...prev, id: existingUser.id }));
+              // Don't overwrite currentUser.id - keep it as the stable localStorage UUID
+              setDbUserId(existingUser.id);
               setIsUserReady(true);
             } else {
               console.error('[USER] Failed to fetch existing user');
@@ -259,6 +283,15 @@ export function useGameState() {
   };
 
   const joinRoom = (code: string) => {
+    if (!isUserReady) {
+      toast({
+        title: "Please wait",
+        description: "Loading user data...",
+        variant: "default"
+      });
+      return;
+    }
+    
     // Validate room code format (SPELL-XXXX)
     const roomCodePattern = /^SPELL-[A-Z0-9]{4}$/;
     if (!code.trim()) {
@@ -350,6 +383,7 @@ export function useGameState() {
     gameState,
     playerState,
     currentUser,
+    dbUserId,
     roomCode,
     isInRoom,
     connectedPlayers,

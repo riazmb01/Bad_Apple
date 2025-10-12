@@ -7,17 +7,18 @@ import { type User, type Achievement } from "@shared/schema";
 
 interface GameStatsProps {
   userId: string;
+  isUserReady: boolean;
 }
 
-export default function GameStats({ userId }: GameStatsProps) {
+export default function GameStats({ userId, isUserReady }: GameStatsProps) {
   const { data: user, isLoading: userLoading, error: userError } = useQuery<User>({
     queryKey: ['/api/users', userId],
-    enabled: !!userId,
+    enabled: !!userId && isUserReady,
   });
 
   const { data: achievements, isLoading: achievementsLoading } = useQuery<Achievement[]>({
     queryKey: ['/api/users', userId, 'achievements'],
-    enabled: !!userId,
+    enabled: !!userId && isUserReady,
   });
 
   // Calculate level progress based on points

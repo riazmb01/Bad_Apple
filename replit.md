@@ -37,7 +37,22 @@ Database design decisions:
 - **Migration Support**: Drizzle Kit for database schema migrations
 
 ## Authentication and Authorization
-The current implementation uses a simple username-based system without traditional authentication. User sessions are managed through the storage layer, with plans for more robust authentication mechanisms.
+The application uses a unique player identification system based on browser-persisted UUIDs, eliminating the need for traditional account creation:
+
+**Player Identity System:**
+- **localStorage UUID (playerId)**: Crypto.randomUUID() generated on first visit, persisted across sessions
+- **Display Name**: Auto-generated as "Player-XXXXXX" using first 6 chars of UUID
+- **Dual ID Architecture**: 
+  - `currentUser.id`: Stable localStorage UUID used for all WebSocket communications
+  - `dbUserId`: Database-assigned ID used for API queries (GameStats, achievements, etc.)
+- **Session Persistence**: Each browser/device gets a unique, persistent player identity without login
+
+**Implementation Details:**
+- Player IDs stored in localStorage survive page refreshes and browser restarts
+- WebSocket messages consistently use the stable localStorage UUID to prevent identification mismatches
+- Database queries use separate dbUserId to prevent premature API calls before user bootstrap
+- Socket actions (createRoom, joinRoom) gated on `isUserReady` flag to prevent race conditions
+- Different browsers/devices automatically get different player identities
 
 ## Game State Management
 Real-time game state is managed through WebSocket connections with a centralized game state system. The architecture supports multiple concurrent game rooms with different game modes and settings.

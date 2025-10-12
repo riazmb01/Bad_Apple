@@ -23,6 +23,7 @@ export default function Home() {
   const {
     gameState,
     currentUser,
+    dbUserId,
     roomCode,
     isInRoom,
     connectedPlayers,
@@ -35,7 +36,8 @@ export default function Home() {
     submitAnswer,
     useHint,
     markPlayerReady,
-    updateSettings
+    updateSettings,
+    isUserReady
   } = useGameState();
 
   const handleSelectMode = (mode: 'spelling' | 'grammar' | 'multiplayer') => {
@@ -104,8 +106,12 @@ export default function Home() {
         {currentMode === 'menu' && (
           <>
             <GameModeSelector onSelectMode={handleSelectMode} />
-            <GameStats userId={currentUser.id} />
-            <Leaderboard currentUserId={currentUser.id} />
+            {dbUserId && (
+              <>
+                <GameStats userId={dbUserId} isUserReady={isUserReady} />
+                <Leaderboard currentUserId={dbUserId} />
+              </>
+            )}
           </>
         )}
 
