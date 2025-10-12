@@ -14,6 +14,7 @@ export interface IStorage {
   createGameRoom(room: InsertGameRoom): Promise<GameRoom>;
   getGameRoom(id: string): Promise<GameRoom | undefined>;
   getGameRoomByCode(code: string): Promise<GameRoom | undefined>;
+  getAllGameRooms(): Promise<GameRoom[]>;
   updateGameRoom(id: string, updates: Partial<GameRoom>): Promise<GameRoom | undefined>;
   deleteGameRoom(id: string): Promise<boolean>;
 
@@ -105,6 +106,10 @@ export class MemStorage implements IStorage {
     return Array.from(this.gameRooms.values()).find(
       (room) => room.code === code,
     );
+  }
+
+  async getAllGameRooms(): Promise<GameRoom[]> {
+    return Array.from(this.gameRooms.values());
   }
 
   async updateGameRoom(id: string, updates: Partial<GameRoom>): Promise<GameRoom | undefined> {
@@ -245,6 +250,11 @@ export class DatabaseStorage implements IStorage {
   async getGameRoomByCode(code: string): Promise<GameRoom | undefined> {
     const [room] = await db.select().from(gameRooms).where(eq(gameRooms.code, code));
     return room || undefined;
+  }
+
+  async getAllGameRooms(): Promise<GameRoom[]> {
+    const rooms = await db.select().from(gameRooms);
+    return rooms;
   }
 
   async updateGameRoom(id: string, updates: Partial<GameRoom>): Promise<GameRoom | undefined> {

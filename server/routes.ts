@@ -23,6 +23,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
 
+  // Periodic cleanup for old/inactive rooms (every 5 minutes)
+  const ROOM_EXPIRY_TIME = 60 * 60 * 1000; // 1 hour in milliseconds
+  const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+  async function cleanupOldRooms() {
+    try {
+      // Get all rooms
+      const allRooms = await storage.getAllGameRooms();
+      
+      // Check each room for expiry
+      for (const room of allRooms) {
+        if (room.createdAt) {
+          const roomAge = Date.now() - new Date(room.createdAt).getTime();
+          const roomSessions = await storage.getGameSessionsByRoom(room.id);
+          
+          // Delete room if it's old AND (empty OR never started)
+          if (roomAge > ROOM_EXPIRY_TIME && (roomSessions.length === 0 || !room.isActive)) {
+            console.log(`Cleaning up old room ${room.id}, age: ${Math.floor(roomAge / 60000)} minutes`);
+            
+            // Clean up all sessions first
+            for (const session of roomSessions) {
+              await storage.deleteGameSession(session.id);
+            }
+            
+            // Then delete the room
+            await storage.deleteGameRoom(room.id);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error during room cleanup:', error);
+    }
+  }
+
+  // Start periodic cleanup
+  setInterval(cleanupOldRooms, CLEANUP_INTERVAL);
+  console.log('Room cleanup job started (runs every 5 minutes)');
+
   // WebSocket connection handling
   wss.on('connection', (ws: WebSocketClient) => {
     console.log('New WebSocket connection');
@@ -265,7 +303,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function handleLeaveRoom(ws: WebSocketClient, payload: any) {
     if (!ws.roomId || !ws.userId) return;
     
-    await handlePlayerLeave(ws.roomId, ws.userId);
+    const roomId = ws.roomId;
+    const userId = ws.userId;
+    const room = await storage.getGameRoom(roomId);
+    if (!room) return;
+
+    // Find and delete the player's game session (explicit leave, not disconnect)
+    const sessions = await storage.getGameSessionsByRoom(roomId);
+    const userSession = sessions.find(s => s.userId === userId);
+    if (userSession) {
+      await storage.deleteGameSession(userSession.id);
+    }
+
+    // Update room player count
+    const newPlayerCount = Math.max(0, (room.currentPlayers || 0) - 1);
+    await storage.updateGameRoom(roomId, {
+      currentPlayers: newPlayerCount
+    });
+
+    // Check if room is now empty and clean it up
+    const remainingSessions = await storage.getGameSessionsByRoom(roomId);
+    if (remainingSessions.length === 0) {
+      console.log(`Room ${roomId} is empty after player left, cleaning up...`);
+      await storage.deleteGameRoom(roomId);
+    } else {
+      // Get updated player list and broadcast
+      const players = await getPlayerList(remainingSessions);
+      broadcastToRoom(roomId, {
+        type: 'player_left',
+        payload: { userId, players }
+      });
+    }
   }
 
   async function handlePlayerLeave(roomId: string, userId: string) {
@@ -288,17 +356,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.deleteGameSession(userSession.id);
           
           // Update room player count
+          const newPlayerCount = Math.max(0, (room.currentPlayers || 0) - 1);
           await storage.updateGameRoom(roomId, {
-            currentPlayers: Math.max(0, (room.currentPlayers || 0) - 1)
+            currentPlayers: newPlayerCount
           });
 
-          // Broadcast player removed
+          // Check if room is now empty and clean it up
           const remainingSessions = await storage.getGameSessionsByRoom(roomId);
-          const players = await getPlayerList(remainingSessions);
-          broadcastToRoom(roomId, {
-            type: 'player_removed',
-            payload: { userId, players }
-          });
+          if (remainingSessions.length === 0) {
+            console.log(`Room ${roomId} is empty, cleaning up...`);
+            await storage.deleteGameRoom(roomId);
+          } else {
+            // Broadcast player removed
+            const players = await getPlayerList(remainingSessions);
+            broadcastToRoom(roomId, {
+              type: 'player_removed',
+              payload: { userId, players }
+            });
+          }
         }
       }, 120000); // 2 minutes
     }
