@@ -4,6 +4,8 @@ import GameModeSelector from "@/components/GameModeSelector";
 import SpellingBeeGame from "@/components/SpellingBeeGame";
 import GrammarGame from "@/components/GrammarGame";
 import MultiplayerLobby from "@/components/MultiplayerLobby";
+import MultiplayerGameView from "@/components/MultiplayerGameView";
+import MultiplayerResults from "@/components/MultiplayerResults";
 import GameStats from "@/components/GameStats";
 import Leaderboard from "@/components/Leaderboard";
 import { useGameState } from "@/hooks/useGameState";
@@ -24,6 +26,7 @@ export default function Home() {
     roomCode,
     isInRoom,
     connectedPlayers,
+    gameResults,
     connectionState,
     createRoom,
     joinRoom,
@@ -214,7 +217,7 @@ export default function Home() {
         )}
 
         {/* Multiplayer Lobby */}
-        {currentMode === 'multiplayer' && isInRoom && !gameState?.isActive && (
+        {currentMode === 'multiplayer' && isInRoom && !gameState?.isActive && !gameResults && (
           <MultiplayerLobby
             roomCode={roomCode}
             connectedPlayers={connectedPlayers}
@@ -227,25 +230,31 @@ export default function Home() {
 
         {/* Active Multiplayer Game */}
         {currentMode === 'multiplayer' && gameState?.isActive && (
-          <>
-            {gameState.gameMode === 'spelling' && (
-              <SpellingBeeGame
-                gameState={gameState}
-                onSubmitAnswer={submitAnswer}
-                onUseHint={(hintType: string) => useHint(hintType as 'firstLetter' | 'definition' | 'sentence')}
-                onSkipWord={handleSkipWord}
-                onPauseGame={handlePauseGame}
-              />
-            )}
-            {gameState.gameMode === 'grammar' && (
-              <GrammarGame
-                gameState={gameState}
-                onSubmitAnswer={submitAnswer}
-                onSkipWord={handleSkipWord}
-                onPauseGame={handlePauseGame}
-              />
-            )}
-          </>
+          <MultiplayerGameView
+            gameState={gameState}
+            connectedPlayers={connectedPlayers}
+            currentUserId={currentUser.id}
+            onSubmitAnswer={submitAnswer}
+            onUseHint={(hintType: string) => useHint(hintType as 'firstLetter' | 'definition' | 'sentence')}
+            onSkipWord={handleSkipWord}
+            onPauseGame={handlePauseGame}
+          />
+        )}
+
+        {/* Multiplayer Results */}
+        {currentMode === 'multiplayer' && gameResults && (
+          <MultiplayerResults
+            players={gameResults.map((session: any) => ({
+              userId: session.userId,
+              username: connectedPlayers.find((p: any) => p.userId === session.userId)?.username || 'Player',
+              avatar: connectedPlayers.find((p: any) => p.userId === session.userId)?.avatar,
+              score: session.score || 0,
+              correctAnswers: session.correctAnswers || 0,
+              totalAnswers: session.totalAnswers || 0
+            }))}
+            currentUserId={currentUser.id}
+            onBackToMenu={handleBackToMenu}
+          />
         )}
 
         {/* Connection Status */}
