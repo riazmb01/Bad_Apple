@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { GameState, PlayerState, Word, Achievement } from "@shared/schema";
 import { useWebSocket } from "./useWebSocket";
+import { useToast } from "@/hooks/use-toast";
 
 export function useGameState() {
+  const { toast } = useToast();
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState | null>(null);
   const [currentUser, setCurrentUser] = useState({
@@ -55,6 +57,11 @@ export function useGameState() {
         } catch (error) {
           console.error('Error parsing stored room data:', error);
           localStorage.removeItem('currentRoom');
+          toast({
+            title: "Reconnection Failed",
+            description: "Stored room data was invalid. Please rejoin manually.",
+            variant: "destructive"
+          });
         }
       }
     }
@@ -154,6 +161,11 @@ export function useGameState() {
         break;
       case 'error':
         console.error('Game error:', message.payload.message);
+        toast({
+          title: "Error",
+          description: message.payload.message,
+          variant: "destructive"
+        });
         break;
     }
   };
@@ -172,10 +184,30 @@ export function useGameState() {
   };
 
   const joinRoom = (code: string) => {
+    // Validate room code format (SPELL-XXXX)
+    const roomCodePattern = /^SPELL-[A-Z0-9]{4}$/;
+    if (!code.trim()) {
+      toast({
+        title: "Invalid Room Code",
+        description: "Please enter a room code.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (!roomCodePattern.test(code.toUpperCase())) {
+      toast({
+        title: "Invalid Room Code",
+        description: "Room code must be in format SPELL-XXXX (e.g., SPELL-A1B2)",
+        variant: "destructive"
+      });
+      return;
+    }
+
     sendMessage({
       type: 'join_room',
       payload: {
-        roomCode: code,
+        roomCode: code.toUpperCase(),
         userId: currentUser.id,
         username: currentUser.username
       }
@@ -210,9 +242,18 @@ export function useGameState() {
   };
 
   const submitAnswer = (answer: string) => {
+    if (!answer || !answer.trim()) {
+      toast({
+        title: "Invalid Answer",
+        description: "Please enter an answer before submitting.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     sendMessage({
       type: 'submit_answer',
-      payload: { answer }
+      payload: { answer: answer.trim() }
     });
   };
 
