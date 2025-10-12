@@ -137,7 +137,7 @@ export default function Home() {
         {/* Grammar Game */}
         {currentMode === 'grammar' && (
           <GrammarGame
-            gameState={gameState}
+            gameState={gameState || undefined}
             onSubmitAnswer={submitAnswer}
             onSkipWord={handleSkipWord}
             onPauseGame={handlePauseGame}
