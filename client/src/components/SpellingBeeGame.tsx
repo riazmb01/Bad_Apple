@@ -347,7 +347,7 @@ export default function SpellingBeeGame({
                     <span className="font-medium">First Letter</span>
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-5 pts</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground break-words leading-relaxed">
                     {hintsUsed.firstLetter && currentWord ? `First letter: ${currentWord.word[0].toUpperCase()}` : "Reveal the first letter of the word"}
                   </p>
                 </Button>
@@ -364,7 +364,7 @@ export default function SpellingBeeGame({
                     <span className="font-medium">Definition</span>
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-10 pts</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground break-words leading-relaxed">
                     {hintsUsed.definition && currentWord?.definition ? currentWord.definition : "Show the word's meaning"}
                   </p>
                 </Button>
@@ -381,7 +381,7 @@ export default function SpellingBeeGame({
                     <span className="font-medium">Example</span>
                     <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-15 pts</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground break-words leading-relaxed italic">
                     {hintsUsed.sentence && currentWord?.exampleSentence ? currentWord.exampleSentence : "See the word used in context"}
                   </p>
                 </Button>
