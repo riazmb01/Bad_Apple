@@ -41,6 +41,7 @@ export const gameSessions = pgTable("game_sessions", {
   totalAnswers: integer("total_answers").default(0),
   hintsUsed: integer("hints_used").default(0),
   timeElapsed: integer("time_elapsed").default(0),
+  isReady: boolean("is_ready").default(true),
   isComplete: boolean("is_complete").default(false),
   isConnected: boolean("is_connected").default(true),
   disconnectedAt: timestamp("disconnected_at"),
@@ -99,9 +100,11 @@ export interface GameState {
 export interface PlayerState {
   userId: string;
   username: string;
+  avatar?: string;
   score: number;
   isReady: boolean;
   isActive: boolean;
+  isConnected?: boolean;
   currentAnswer?: string;
   hintsUsed: number;
 }

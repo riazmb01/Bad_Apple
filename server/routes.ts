@@ -168,8 +168,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: username,
         avatar: getAvatarInitials(username),
         score: 0,
-        isReady: false,
+        isReady: true,
         isActive: true,
+        isConnected: true,
         hintsUsed: 0
       }];
 
@@ -263,6 +264,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // New player joining
+    // Check if player already has a session (e.g., host auto-joining after room creation)
+    const existingActiveSession = sessions.find(s => s.userId === userId);
+    if (existingActiveSession) {
+      // Player already has a session, just send room info back (no broadcast needed)
+      const players = await getPlayerList(sessions);
+      ws.send(JSON.stringify({
+        type: 'room_joined',
+        payload: { 
+          room,
+          isHost: room.hostId === userId,
+          players,
+          gameState: room.gameState
+        }
+      }));
+      return;
+    }
+    
     if ((room.currentPlayers || 0) >= (room.maxPlayers || 10)) {
       ws.send(JSON.stringify({
         type: 'error',
@@ -412,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           username: client?.username || 'Player',
           avatar: getAvatarInitials(client?.username || 'Player'),
           score: session.score || 0,
-          isReady: false,
+          isReady: session.isReady ?? true,
           isActive: session.isConnected || false,
           isConnected: session.isConnected || false,
           hintsUsed: session.hintsUsed || 0
