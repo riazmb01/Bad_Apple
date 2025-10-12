@@ -18,6 +18,39 @@ export function useGameState() {
     gamesWon: 23,
     bestStreak: 18
   });
+
+  // Auto-create user in database if they don't exist
+  useEffect(() => {
+    const createUserIfNeeded = async () => {
+      try {
+        // Check if user exists
+        const response = await fetch(`/api/users/${currentUser.id}`);
+        if (response.status === 404) {
+          // User doesn't exist, create them
+          await fetch('/api/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: currentUser.id,
+              username: currentUser.username,
+              level: currentUser.level,
+              points: currentUser.points,
+              streak: currentUser.streak,
+              accuracy: currentUser.accuracy,
+              wordsSpelled: currentUser.wordsSpelled,
+              gamesWon: currentUser.gamesWon,
+              bestStreak: currentUser.bestStreak
+            })
+          });
+          console.log('[USER] Created user in database:', currentUser.id);
+        }
+      } catch (error) {
+        console.error('[USER] Error creating user:', error);
+      }
+    };
+    
+    createUserIfNeeded();
+  }, []);
   const [roomCode, setRoomCode] = useState<string>("");
   const [isInRoom, setIsInRoom] = useState(false);
   const [connectedPlayers, setConnectedPlayers] = useState<PlayerState[]>([]);
