@@ -89,6 +89,7 @@ export default function MultiplayerGameView({
         {gameState.gameMode === 'spelling' && (
           <SpellingBeeGame
             gameState={gameState}
+            userId={currentUserId}
             onSubmitAnswer={onSubmitAnswer}
             onUseHint={onUseHint}
             onSkipWord={onSkipWord}
