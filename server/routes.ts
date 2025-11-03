@@ -546,15 +546,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     switch (hintType) {
       case 'firstLetter':
         hintContent = currentWord.word.charAt(0).toUpperCase();
-        pointsDeducted = 5;
+        pointsDeducted = 2;
         break;
       case 'definition':
         hintContent = currentWord.definition;
-        pointsDeducted = 10;
+        pointsDeducted = 3;
         break;
       case 'sentence':
         hintContent = currentWord.exampleSentence;
-        pointsDeducted = 15;
+        pointsDeducted = 3;
         break;
     }
 
