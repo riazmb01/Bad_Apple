@@ -58,6 +58,7 @@ export default function SpellingBeeGame({
     message: ''
   });
   const [batchCounter, setBatchCounter] = useState(0);
+  const [voicesReady, setVoicesReady] = useState(false);
 
   // Fetch initial words
   const { data: initialWords, refetch: refetchInitial } = useQuery<Word[]>({
@@ -88,16 +89,20 @@ export default function SpellingBeeGame({
     console.log('Initializing speech synthesis...');
     initializeSpeech().then(() => {
       console.log('Speech synthesis ready!');
+      setVoicesReady(true);
     }).catch((err) => {
       console.error('Failed to initialize speech:', err);
+      // Even if it fails, still set ready to not block the game
+      setVoicesReady(true);
     });
   }, []);
 
   useEffect(() => {
-    if (initialWords && words.length === 0) {
+    if (initialWords && words.length === 0 && voicesReady) {
+      console.log('Setting initial words now that voices are ready');
       setWords(initialWords);
     }
-  }, [initialWords]);
+  }, [initialWords, voicesReady]);
 
   useEffect(() => {
     if (prefetchedWords && nextWords.length === 0 && !isPrefetching) {
