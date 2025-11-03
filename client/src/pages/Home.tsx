@@ -12,6 +12,8 @@ import { useGameState } from "@/hooks/useGameState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 type GameMode = 'menu' | 'spelling' | 'grammar' | 'multiplayer' | 'join_room' | 'create_room';
 
@@ -19,6 +21,7 @@ export default function Home() {
   const [currentMode, setCurrentMode] = useState<GameMode>('menu');
   const [joinCode, setJoinCode] = useState("");
   const [isHost, setIsHost] = useState(false);
+  const [createGameMode, setCreateGameMode] = useState("spelling");
   
   const {
     gameState,
@@ -48,8 +51,8 @@ export default function Home() {
     }
   };
 
-  const handleCreateRoom = (gameMode: string, difficulty: string) => {
-    createRoom(gameMode, difficulty, {
+  const handleCreateRoom = (gameMode: string) => {
+    createRoom(gameMode, 'intermediate', {
       maxPlayers: 10,
       timePerWord: 45,
       hintsEnabled: true
@@ -156,35 +159,24 @@ export default function Home() {
                   <h2 className="text-xl font-bold text-foreground mb-4 text-center">Create a Room</h2>
                   <div className="space-y-4">
                     <div>
-                      <label className="text-sm text-muted-foreground block mb-2">Game Mode</label>
-                      <select 
-                        id="create-game-mode"
-                        className="w-full p-2 border rounded-md bg-background"
-                        data-testid="select-create-game-mode"
+                      <Label htmlFor="create-game-mode" className="text-sm font-medium text-foreground mb-2 block">
+                        Game Mode
+                      </Label>
+                      <Select 
+                        value={createGameMode} 
+                        onValueChange={setCreateGameMode}
                       >
-                        <option value="spelling">Spelling Bee</option>
-                        <option value="grammar">Grammar Mastery</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-sm text-muted-foreground block mb-2">Difficulty</label>
-                      <select 
-                        id="create-difficulty"
-                        className="w-full p-2 border rounded-md bg-background"
-                        data-testid="select-create-difficulty"
-                      >
-                        <option value="beginner">Beginner (1st-3rd Grade)</option>
-                        <option value="intermediate">Intermediate (4th-6th Grade)</option>
-                        <option value="advanced">Advanced (7th-9th Grade)</option>
-                        <option value="expert">Expert (10th+ Grade)</option>
-                      </select>
+                        <SelectTrigger data-testid="select-create-game-mode">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="spelling">Spelling Bee</SelectItem>
+                          <SelectItem value="grammar">Grammar Mastery</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     <Button 
-                      onClick={() => {
-                        const gameMode = (document.getElementById('create-game-mode') as HTMLSelectElement).value;
-                        const difficulty = (document.getElementById('create-difficulty') as HTMLSelectElement).value;
-                        handleCreateRoom(gameMode, difficulty);
-                      }}
+                      onClick={() => handleCreateRoom(createGameMode)}
                       disabled={connectionState !== 'connected'}
                       className="w-full"
                       data-testid="button-create-room"

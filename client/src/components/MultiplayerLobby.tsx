@@ -26,7 +26,6 @@ export default function MultiplayerLobby({
   onUpdateSettings
 }: MultiplayerLobbyProps) {
   const [gameSettings, setGameSettings] = useState({
-    difficulty: "intermediate",
     competitionType: "elimination",
     timeLimit: "45",
     hintsEnabled: true
@@ -149,29 +148,7 @@ export default function MultiplayerLobby({
               </h4>
               
               <div className="space-y-4">
-                {/* Difficulty Level */}
-                <div>
-                  <Label htmlFor="difficulty" className="text-sm font-medium text-foreground mb-2 block">
-                    Difficulty Level
-                  </Label>
-                  <Select 
-                    value={gameSettings.difficulty} 
-                    onValueChange={(value) => updateSetting('difficulty', value)}
-                    disabled={!isHost}
-                  >
-                    <SelectTrigger data-testid="select-difficulty">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner (1st-3rd Grade)</SelectItem>
-                      <SelectItem value="intermediate">Intermediate (4th-6th Grade)</SelectItem>
-                      <SelectItem value="advanced">Advanced (7th-9th Grade)</SelectItem>
-                      <SelectItem value="expert">Expert (10th+ Grade)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Game Mode */}
+                {/* Competition Type */}
                 <div>
                   <Label htmlFor="competition-type" className="text-sm font-medium text-foreground mb-2 block">
                     Competition Type
