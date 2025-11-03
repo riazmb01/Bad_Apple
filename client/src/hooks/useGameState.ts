@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { GameState, PlayerState, Word, Achievement } from "@shared/schema";
+import { GameState, PlayerState, Word, Achievement, User } from "@shared/schema";
 import { useWebSocket } from "./useWebSocket";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
@@ -102,7 +102,7 @@ export function useGameState() {
   }, []);
 
   // Fetch user data from database to get actual points, streak, etc.
-  const { data: dbUserData } = useQuery({
+  const { data: dbUserData } = useQuery<User>({
     queryKey: ['/api/users', dbUserId],
     enabled: !!dbUserId,
   });
