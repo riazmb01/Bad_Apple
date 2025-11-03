@@ -205,6 +205,7 @@ export default function Home() {
         {currentMode === 'spelling' && !gameState && (
           <SpellingBeeGame
             gameState={gameState}
+            userId={dbUserId}
             onSubmitAnswer={submitAnswer}
             onUseHint={(hintType: string) => useHint(hintType as 'firstLetter' | 'definition' | 'sentence')}
             onSkipWord={handleSkipWord}

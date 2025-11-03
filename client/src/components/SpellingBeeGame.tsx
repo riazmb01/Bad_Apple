@@ -7,6 +7,7 @@ import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { speakWord } from "@/utils/speechUtils";
 import { useQuery } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Word {
   _id?: string;
@@ -18,6 +19,7 @@ interface Word {
 
 interface SpellingBeeGameProps {
   gameState: any;
+  userId: string | null;
   onSubmitAnswer: (answer: string) => void;
   onUseHint: (hintType: string) => void;
   onSkipWord: () => void;
@@ -25,7 +27,8 @@ interface SpellingBeeGameProps {
 }
 
 export default function SpellingBeeGame({ 
-  gameState, 
+  gameState,
+  userId, 
   onSubmitAnswer, 
   onUseHint, 
   onSkipWord, 
@@ -176,6 +179,29 @@ export default function SpellingBeeGame({
     };
   }, [gameOver]);
 
+  // Save game results when game ends
+  const resultsSavedRef = useRef(false);
+  useEffect(() => {
+    if (gameOver && userId && !resultsSavedRef.current) {
+      resultsSavedRef.current = true;
+      
+      // Save results to database
+      apiRequest('POST', '/api/game-results', {
+        userId,
+        score,
+        correctAnswers: correctCount,
+        totalAttempts
+      })
+        .then(() => {
+          // Invalidate user cache to update progress card
+          queryClient.invalidateQueries({ queryKey: ['/api/users', userId] });
+        })
+        .catch((error) => {
+          console.error('Failed to save game results:', error);
+        });
+    }
+  }, [gameOver, userId, score, correctCount, totalAttempts]);
+
   const handleTimeOut = () => {
     // Game over - show results screen
     setGameOver(true);
@@ -252,7 +278,7 @@ export default function SpellingBeeGame({
   };
 
   const handlePlayAgain = () => {
-    // Reset all game state including timeout ref
+    // Reset all game state including timeout ref and results saved flag
     setGameOver(false);
     setTimeLeft(60);
     setScore(0);
@@ -263,6 +289,7 @@ export default function SpellingBeeGame({
     setFeedback({ show: false, isCorrect: false, message: '' });
     setHintsUsed({ firstLetter: false, definition: false, sentence: false });
     timeoutRef.current = false;
+    resultsSavedRef.current = false;
     // Refetch words
     refetchInitial();
   };
