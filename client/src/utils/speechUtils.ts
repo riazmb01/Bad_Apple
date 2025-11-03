@@ -1,6 +1,7 @@
 // Voice loading state
 let voicesLoaded = false;
 let voicesLoadPromise: Promise<void> | null = null;
+let cachedVoice: SpeechSynthesisVoice | null = null;
 
 // Pre-load voices and ensure they're ready
 const ensureVoicesLoaded = (): Promise<void> => {
@@ -22,7 +23,8 @@ const ensureVoicesLoaded = (): Promise<void> => {
     
     if (voices.length > 0) {
       voicesLoaded = true;
-      console.log('Voices already loaded:', voices.length);
+      // Cache the preferred voice immediately
+      cachedVoice = voices.find(v => v.name === 'Samantha' || v.name === 'Microsoft Zira Pro') || voices[0];
       resolve();
       return;
     }
@@ -32,7 +34,8 @@ const ensureVoicesLoaded = (): Promise<void> => {
       const loadedVoices = synth.getVoices();
       if (loadedVoices.length > 0) {
         voicesLoaded = true;
-        console.log('Voices loaded:', loadedVoices.length);
+        // Cache the preferred voice
+        cachedVoice = loadedVoices.find(v => v.name === 'Samantha' || v.name === 'Microsoft Zira Pro') || loadedVoices[0];
         resolve();
       }
     };
@@ -67,29 +70,21 @@ export const speakWord = async (word: string, isMuted: boolean = false): Promise
     // Ensure voices are loaded before speaking
     await ensureVoicesLoaded();
     
-    // Cancel any ongoing speech
+    // Cancel any ongoing speech immediately
     synth.cancel();
 
     const utterance = new SpeechSynthesisUtterance(word);
-    const voices = synth.getVoices();
-
-    console.log('Available voices:', voices.length);
-
-    const voice = voices.find(v => v.name === 'Samantha' || v.name === 'Microsoft Zira Pro');
-    if (voice) {
-      console.log('Using preferred voice:', voice.name);
-      utterance.voice = voice;
-    } else if (voices.length > 0) {
-      console.log('Using default voice:', voices[0].name);
-      utterance.voice = voices[0];
+    
+    // Use cached voice for instant performance
+    if (cachedVoice) {
+      utterance.voice = cachedVoice;
     }
 
     utterance.lang = 'en-US';
-    utterance.rate = 0.3;
+    utterance.rate = 0.7; // Increased from 0.3 for faster pronunciation
     utterance.pitch = 1;
     utterance.volume = isMuted ? 0 : 1;
 
-    console.log('Speaking word:', word, 'with rate:', utterance.rate);
     synth.speak(utterance);
   } catch (error) {
     console.error('Error speaking word:', error);

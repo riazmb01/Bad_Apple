@@ -140,19 +140,13 @@ export default function SpellingBeeGame({
 
   const currentWord = words[currentWordIndex] || null;
 
-  // Console log each word and auto-play pronunciation
+  // Auto-play pronunciation for new words
   useEffect(() => {
-    if (currentWord) {
-      console.log('Current word:', currentWord.word);
-      console.log('Word details:', currentWord);
-      // Auto-play pronunciation for the new word
-      setTimeout(() => {
-        if (!isMuted) {
-          speakWord(currentWord.word, false);
-        }
-      }, 500);
+    if (currentWord && !isMuted) {
+      // Immediate pronunciation for faster UX
+      speakWord(currentWord.word, false);
     }
-  }, [currentWord]);
+  }, [currentWord, isMuted]);
 
   // Reset hints and feedback on word changes (but NOT timer)
   useEffect(() => {
