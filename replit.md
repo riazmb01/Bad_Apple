@@ -57,6 +57,25 @@ The application uses a unique player identification system based on browser-pers
 ## Game State Management
 Real-time game state is managed through WebSocket connections with a centralized game state system. The architecture supports multiple concurrent game rooms with different game modes and settings.
 
+## Achievement System
+The application features a comprehensive achievement system to reward player milestones and encourage engagement:
+
+**Achievement Categories:**
+- **Progression**: First word spelled, word count milestones (10, 50, 100, 500 words)
+- **Accuracy**: 90%, 95%, and 100% accuracy achievements
+- **Streaks**: 5-word, 10-word, and 15-word streak achievements
+- **Speed**: 50+ points in single game
+- **Levels**: Reaching levels 5, 10, and 20
+
+**Technical Implementation:**
+- Database table `user_achievements` with UNIQUE constraint on (user_id, achievement_id) to prevent duplicates
+- Achievement definitions stored in shared schema with id, name, description, icon, color, and unlock criteria
+- Automatic achievement checking after each game completion via POST to `/api/achievements/check`
+- Achievement unlock logic handles duplicate attempts gracefully with try-catch error handling
+- Frontend displays achievement count in header and all achievements (locked/unlocked) in GameStats card
+- Uses gamesPlayed field to track total games (distinct from gamesWon) for achievement tracking
+- Color-coded icons: trophy (yellow), flame (orange), brain (purple) for visual distinction
+
 # External Dependencies
 
 ## Database Services
