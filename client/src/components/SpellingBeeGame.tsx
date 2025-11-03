@@ -51,6 +51,7 @@ export default function SpellingBeeGame({
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [totalAttempts, setTotalAttempts] = useState(0);
+  const [totalWordsAttempted, setTotalWordsAttempted] = useState(0);
   const [feedback, setFeedback] = useState<{ show: boolean; isCorrect: boolean; message: string }>({
     show: false,
     isCorrect: false,
@@ -223,13 +224,13 @@ export default function SpellingBeeGame({
         if (hintsUsed.sentence) points -= 3;
         setScore(prev => prev + Math.max(points, 1));
         
-        // Add 10 seconds to timer for correct answer
-        setTimeLeft(prev => prev + 10);
+        // Add 5 seconds to timer for correct answer
+        setTimeLeft(prev => prev + 5);
         
         setFeedback({
           show: true,
           isCorrect: true,
-          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +10 seconds`
+          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +5 seconds`
         });
       } else {
         setFeedback({
@@ -246,6 +247,7 @@ export default function SpellingBeeGame({
       setTimeout(() => {
         setUserInput("");
         setCurrentWordIndex(prev => prev + 1);
+        setTotalWordsAttempted(prev => prev + 1);
       }, 2000);
     }
   };
@@ -274,6 +276,7 @@ export default function SpellingBeeGame({
       // Notify parent component that word was skipped
       onSkipWord();
       setCurrentWordIndex(prev => prev + 1);
+      setTotalWordsAttempted(prev => prev + 1);
     }
   };
 
@@ -284,6 +287,7 @@ export default function SpellingBeeGame({
     setScore(0);
     setCorrectCount(0);
     setTotalAttempts(0);
+    setTotalWordsAttempted(0);
     setCurrentWordIndex(0);
     setUserInput('');
     setFeedback({ show: false, isCorrect: false, message: '' });
@@ -313,7 +317,7 @@ export default function SpellingBeeGame({
             <div className="flex items-center space-x-4">
               <h3 className="text-2xl font-bold text-foreground" data-testid="game-title">Spelling Bee Challenge</h3>
               <div className="bg-accent/10 text-accent text-sm font-semibold px-3 py-1 rounded-full">
-                Word {currentWordIndex + 1} | Score: {score}
+                Word {totalWordsAttempted + 1} | Score: {score}
               </div>
               <div className="text-sm text-muted-foreground">
                 Accuracy: {totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0}%
