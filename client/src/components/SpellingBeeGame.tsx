@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { speakWord } from "@/utils/speechUtils";
+import { speakWord, initializeSpeech } from "@/utils/speechUtils";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -82,6 +82,16 @@ export default function SpellingBeeGame({
     enabled: currentWordIndex === 3 && nextWords.length === 0,
     staleTime: 0, // Always fetch fresh data
   });
+
+  // Initialize speech synthesis when component mounts
+  useEffect(() => {
+    console.log('Initializing speech synthesis...');
+    initializeSpeech().then(() => {
+      console.log('Speech synthesis ready!');
+    }).catch((err) => {
+      console.error('Failed to initialize speech:', err);
+    });
+  }, []);
 
   useEffect(() => {
     if (initialWords && words.length === 0) {
