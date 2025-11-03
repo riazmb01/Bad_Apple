@@ -60,6 +60,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setInterval(cleanupOldRooms, CLEANUP_INTERVAL);
   console.log('Room cleanup job started (runs every 5 minutes)');
 
+  // Track active timers for timed challenge rooms
+  const activeTimers = new Map<string, NodeJS.Timeout>();
+
+  // Start a countdown timer for timed challenge mode
+  function startTimedChallengeTimer(roomId: string, duration: number) {
+    // Clear any existing timer for this room
+    if (activeTimers.has(roomId)) {
+      clearInterval(activeTimers.get(roomId)!);
+    }
+
+    let timeRemaining = duration;
+    
+    const timerInterval = setInterval(async () => {
+      timeRemaining--;
+
+      // Update game state with new timer value
+      const room = await storage.getGameRoom(roomId);
+      if (!room || !room.gameState) {
+        clearInterval(timerInterval);
+        activeTimers.delete(roomId);
+        return;
+      }
+
+      const gameState = room.gameState as GameState;
+      gameState.globalTimer = timeRemaining;
+
+      await storage.updateGameRoom(roomId, {
+        gameState: gameState
+      });
+
+      // Broadcast timer update to all players
+      broadcastToRoom(roomId, {
+        type: 'timer_update',
+        payload: { timeRemaining }
+      });
+
+      // End game when timer reaches 0
+      if (timeRemaining <= 0) {
+        clearInterval(timerInterval);
+        activeTimers.delete(roomId);
+        await endGame(roomId);
+      }
+    }, 1000); // Update every second
+
+    activeTimers.set(roomId, timerInterval);
+  }
+
   // WebSocket connection handling
   wss.on('connection', (ws: WebSocketClient) => {
     console.log('New WebSocket connection');
@@ -451,21 +498,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      const settings = room.settings as any || {};
+      const competitionType = settings.competitionType || 'elimination';
+      const timePerWord = parseInt(settings.timeLimit) || 45;
+      
+      // For timed challenge: 3 minutes total game time
+      const isTimedChallenge = competitionType === 'timed';
+      const globalTimerDuration = 180; // 3 minutes in seconds
+      
       const gameState: GameState = {
         currentRound: 1,
-        totalRounds: 10,
-        timeLeft: 45,
+        totalRounds: isTimedChallenge ? 999 : 10, // Unlimited rounds for timed mode
+        timeLeft: timePerWord,
         isActive: true,
         players: [],
         gameMode: room.gameMode as any,
         difficulty: room.difficulty as any,
-        currentWord: await getRandomWord(room.difficulty as any)
+        competitionType: competitionType,
+        currentWord: await getRandomWord(room.difficulty as any),
+        ...(isTimedChallenge && {
+          globalTimer: globalTimerDuration,
+          timerStartedAt: Date.now()
+        })
       };
 
       await storage.updateGameRoom(room.id, {
         isActive: true,
         gameState: gameState
       });
+
+      // Start global timer for timed challenge
+      if (isTimedChallenge) {
+        startTimedChallengeTimer(room.id, globalTimerDuration);
+      }
 
       broadcastToRoom(room.id, {
         type: 'game_started',
@@ -596,18 +661,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!room || !room.gameState) return;
 
     const gameState = room.gameState as GameState;
+    const isTimedChallenge = gameState.competitionType === 'timed';
     
-    if (gameState.currentRound >= gameState.totalRounds) {
-      // Game finished
-      await endGame(roomId);
-      return;
+    // For timed challenge, check if timer expired (game will end via timer)
+    if (isTimedChallenge) {
+      if (gameState.globalTimer && gameState.globalTimer <= 0) {
+        await endGame(roomId);
+        return;
+      }
+    } else {
+      // For other modes, check round limit
+      if (gameState.currentRound >= gameState.totalRounds) {
+        await endGame(roomId);
+        return;
+      }
     }
 
     try {
-      // Next round
-      gameState.currentRound++;
+      // Get settings for time per word
+      const settings = room.settings as any || {};
+      const timePerWord = parseInt(settings.timeLimit) || 45;
+      
+      // Next round (or next word in timed mode)
+      if (!isTimedChallenge) {
+        gameState.currentRound++;
+      }
       gameState.currentWord = await getRandomWord(gameState.difficulty);
-      gameState.timeLeft = 45;
+      gameState.timeLeft = timePerWord;
 
       await storage.updateGameRoom(roomId, {
         gameState: gameState

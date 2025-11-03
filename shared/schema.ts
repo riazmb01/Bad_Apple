@@ -124,6 +124,9 @@ export interface GameState {
   players: PlayerState[];
   gameMode: "spelling" | "grammar" | "competition";
   difficulty: "beginner" | "intermediate" | "advanced" | "expert";
+  competitionType?: "elimination" | "timed" | "team" | "relay";
+  globalTimer?: number; // Total time remaining for timed challenge mode (in seconds)
+  timerStartedAt?: number; // Timestamp when timer started
 }
 
 export interface PlayerState {

@@ -286,6 +286,13 @@ export function useGameState() {
       case 'hint_revealed':
         // Handle hint reveal
         break;
+      case 'timer_update':
+        // Update global timer for timed challenge mode
+        setGameState(prev => prev ? {
+          ...prev,
+          globalTimer: message.payload.timeRemaining
+        } : null);
+        break;
       case 'error':
         console.error('Game error:', message.payload.message);
         

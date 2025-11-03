@@ -2,6 +2,7 @@ import { Trophy, Users } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import SpellingBeeGame from "./SpellingBeeGame";
 import GrammarGame from "./GrammarGame";
+import CountdownTimer from "./CountdownTimer";
 
 interface MultiplayerGameViewProps {
   gameState: any;
@@ -23,11 +24,17 @@ export default function MultiplayerGameView({
   onPauseGame
 }: MultiplayerGameViewProps) {
   const sortedPlayers = [...connectedPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
+  const isTimedChallenge = gameState.competitionType === 'timed';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       {/* Live Leaderboard */}
-      <div className="lg:col-span-1 order-2 lg:order-1">
+      <div className="lg:col-span-1 order-2 lg:order-1 space-y-4">
+        {/* Countdown Timer for Timed Challenge */}
+        {isTimedChallenge && gameState.globalTimer !== undefined && (
+          <CountdownTimer timeRemaining={gameState.globalTimer} />
+        )}
+        
         <Card className="sticky top-4">
           <CardContent className="p-6">
             <div className="flex items-center space-x-2 mb-4">
@@ -75,11 +82,13 @@ export default function MultiplayerGameView({
               ))}
             </div>
 
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="text-sm text-muted-foreground">
-                Round {gameState.currentRound || 1} of {gameState.totalRounds || 10}
+            {!isTimedChallenge && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <div className="text-sm text-muted-foreground">
+                  Round {gameState.currentRound || 1} of {gameState.totalRounds || 10}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>
