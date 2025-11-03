@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession } from "@shared/schema";
+import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession, ACHIEVEMENT_DEFINITIONS, type AchievementWithStatus } from "@shared/schema";
 import { getWordsCollection } from "./mongodb";
 
 interface WebSocketClient extends WebSocket {
@@ -781,11 +781,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/users/:id/achievements", async (req, res) => {
-    const user = await storage.getUser(req.params.id);
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
+    try {
+      const userId = req.params.id;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get user's unlocked achievements
+      const unlockedAchievements = await storage.getUserAchievements(userId);
+      const unlockedIds = new Set(unlockedAchievements.map(ua => ua.achievementId));
+
+      // Combine all achievements with unlock status
+      const achievementsWithStatus: AchievementWithStatus[] = ACHIEVEMENT_DEFINITIONS.map(def => {
+        const userAch = unlockedAchievements.find(ua => ua.achievementId === def.id);
+        return {
+          id: def.id,
+          name: def.name,
+          description: def.description,
+          icon: def.icon,
+          criteria: def.criteria,
+          unlocked: unlockedIds.has(def.id),
+          unlockedAt: userAch?.unlockedAt || undefined
+        };
+      });
+
+      res.json(achievementsWithStatus);
+    } catch (error) {
+      console.error('Failed to fetch achievements:', error);
+      res.status(500).json({ message: "Failed to fetch achievements" });
     }
-    res.json(user.achievements || []);
+  });
+
+  // Check and unlock achievements for a user
+  app.post("/api/achievements/check", async (req, res) => {
+    try {
+      const { userId, gameData } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "userId is required" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Get currently unlocked achievements
+      const unlockedAchievements = await storage.getUserAchievements(userId);
+      const unlockedIds = new Set(unlockedAchievements.map(ua => ua.achievementId));
+      
+      const newlyUnlocked: string[] = [];
+
+      // Check each achievement
+      for (const achievement of ACHIEVEMENT_DEFINITIONS) {
+        // Skip if already unlocked
+        if (unlockedIds.has(achievement.id)) continue;
+
+        let shouldUnlock = false;
+        const criteria = achievement.criteria as any;
+
+        switch (criteria.type) {
+          case "words_spelled":
+            shouldUnlock = (user.wordsSpelled || 0) >= criteria.count;
+            break;
+          case "perfect_accuracy":
+            shouldUnlock = gameData?.accuracy === 100;
+            break;
+          case "time_remaining":
+            shouldUnlock = (gameData?.timeRemaining || 0) >= criteria.seconds;
+            break;
+          case "streak":
+            shouldUnlock = (gameData?.currentStreak || user.bestStreak || 0) >= criteria.count;
+            break;
+          case "game_score":
+            shouldUnlock = (gameData?.score || 0) >= criteria.points;
+            break;
+          case "games_played":
+            shouldUnlock = (user.gamesPlayed || 0) >= criteria.count;
+            break;
+          case "level":
+            shouldUnlock = (user.level || 1) >= criteria.level;
+            break;
+          case "accuracy":
+            shouldUnlock = (user.accuracy || 0) >= criteria.percentage;
+            break;
+          case "games_completed":
+            shouldUnlock = (user.gamesWon || 0) >= criteria.count;
+            break;
+        }
+
+        if (shouldUnlock) {
+          await storage.unlockAchievement(userId, achievement.id);
+          newlyUnlocked.push(achievement.id);
+        }
+      }
+
+      res.json({ newlyUnlocked });
+    } catch (error) {
+      console.error('Failed to check achievements:', error);
+      res.status(500).json({ message: "Failed to check achievements" });
+    }
   });
 
   app.get("/api/leaderboard", async (req, res) => {
@@ -905,6 +1001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         wordsSpelled: (user.wordsSpelled || 0) + correctAnswers,
         accuracy: newAccuracy,
         gamesWon: (user.gamesWon || 0) + 1, // Count each completed game as a "win"
+        gamesPlayed: (user.gamesPlayed || 0) + 1, // Increment games played
       });
 
       res.json(updatedUser);

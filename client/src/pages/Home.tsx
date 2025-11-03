@@ -86,7 +86,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader user={currentUser} />
+      <AppHeader user={currentUser} dbUserId={dbUserId} />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back to Menu Button */}

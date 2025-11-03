@@ -1,9 +1,9 @@
-import { Trophy, Flame, Brain, Loader2 } from "lucide-react";
+import { Trophy, Flame, Brain, Loader2, Lock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { type User, type Achievement } from "@shared/schema";
+import { type User, type AchievementWithStatus } from "@shared/schema";
 
 interface GameStatsProps {
   userId: string;
@@ -16,7 +16,7 @@ export default function GameStats({ userId, isUserReady }: GameStatsProps) {
     enabled: !!userId && isUserReady,
   });
 
-  const { data: achievements, isLoading: achievementsLoading } = useQuery<Achievement[]>({
+  const { data: achievements, isLoading: achievementsLoading } = useQuery<AchievementWithStatus[]>({
     queryKey: ['/api/users', userId, 'achievements'],
     enabled: !!userId && isUserReady,
   });
@@ -26,32 +26,6 @@ export default function GameStats({ userId, isUserReady }: GameStatsProps) {
     const pointsPerLevel = 1000;
     const currentLevelPoints = points % pointsPerLevel;
     return (currentLevelPoints / pointsPerLevel) * 100;
-  };
-
-  const getAchievementIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'trophy':
-        return Trophy;
-      case 'flame':
-        return Flame;
-      case 'brain':
-        return Brain;
-      default:
-        return Trophy;
-    }
-  };
-
-  const getAchievementColors = (iconName: string) => {
-    switch (iconName) {
-      case 'trophy':
-        return { iconColor: 'text-yellow-500', bgColor: 'bg-yellow-50' };
-      case 'flame':
-        return { iconColor: 'text-orange-500', bgColor: 'bg-orange-50' };
-      case 'brain':
-        return { iconColor: 'text-purple-500', bgColor: 'bg-purple-50' };
-      default:
-        return { iconColor: 'text-blue-500', bgColor: 'bg-blue-50' };
-    }
   };
 
   if (userLoading) {
@@ -146,51 +120,57 @@ export default function GameStats({ userId, isUserReady }: GameStatsProps) {
         {/* Achievements */}
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-xl font-semibold text-foreground mb-6" data-testid="achievements-title">Recent Achievements</h3>
+            <h3 className="text-xl font-semibold text-foreground mb-6" data-testid="achievements-title">Achievements</h3>
             
-            <div className="space-y-4">
+            <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {achievementsLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="animate-spin h-6 w-6" />
                 </div>
               ) : achievements && achievements.length > 0 ? (
-                achievements.slice(0, 3).map((achievement) => {
-                  const IconComponent = getAchievementIcon(achievement.icon);
-                  const { iconColor, bgColor } = getAchievementColors(achievement.icon);
-                  return (
+                <div className="grid grid-cols-1 gap-2">
+                  {achievements.map((achievement) => (
                     <div 
                       key={achievement.id} 
-                      className={`flex items-center space-x-4 p-3 ${bgColor} rounded-lg`}
+                      className={`flex items-center space-x-3 p-3 rounded-lg border ${
+                        achievement.unlocked 
+                          ? 'bg-green-50 border-green-200' 
+                          : 'bg-muted/30 border-muted opacity-60'
+                      }`}
                       data-testid={`achievement-${achievement.id}`}
                     >
-                      <div className={`w-12 h-12 bg-white rounded-lg flex items-center justify-center`}>
-                        <IconComponent className={`${iconColor} text-xl w-6 h-6`} />
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-2xl ${
+                        achievement.unlocked ? 'bg-white' : 'bg-muted'
+                      }`}>
+                        {achievement.unlocked ? achievement.icon : <Lock className="w-5 h-5 text-muted-foreground" />}
                       </div>
-                      <div className="flex-1">
-                        <div className="font-medium text-foreground">{achievement.name}</div>
-                        <div className="text-sm text-muted-foreground">{achievement.description}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-medium text-sm ${achievement.unlocked ? 'text-foreground' : 'text-muted-foreground'}`}>
+                          {achievement.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {achievement.description}
+                        </div>
                       </div>
-                      <div className={`text-xs font-semibold ${iconColor}`}>
-                        +{achievement.points} XP
-                      </div>
+                      {achievement.unlocked && achievement.unlockedAt && (
+                        <div className="text-xs text-green-600 font-medium">
+                          ✓
+                        </div>
+                      )}
                     </div>
-                  );
-                })
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
-                  No achievements unlocked yet
+                  No achievements available
                 </div>
               )}
-
-              {achievements && achievements.length > 3 && (
-                <Button 
-                  variant="ghost" 
-                  className="w-full"
-                  data-testid="button-view-all-achievements"
-                >
-                  View All {achievements.length} Achievements
-                </Button>
-              )}
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="text-sm text-center text-muted-foreground">
+                {achievements?.filter(a => a.unlocked).length || 0} of {achievements?.length || 0} unlocked
+              </div>
             </div>
           </CardContent>
         </Card>

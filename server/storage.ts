@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type GameRoom, type InsertGameRoom, type GameSession, type InsertGameSession, type PlayerState, users, gameRooms, gameSessions } from "@shared/schema";
+import { type User, type InsertUser, type GameRoom, type InsertGameRoom, type GameSession, type InsertGameSession, type PlayerState, type UserAchievement, users, gameRooms, gameSessions, userAchievements } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, desc, sql } from "drizzle-orm";
@@ -24,6 +24,10 @@ export interface IStorage {
   getGameSessionsByRoom(roomId: string): Promise<GameSession[]>;
   updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined>;
   deleteGameSession(id: string): Promise<boolean>;
+
+  // Achievement operations
+  getUserAchievements(userId: string): Promise<UserAchievement[]>;
+  unlockAchievement(userId: string, achievementId: string): Promise<UserAchievement>;
 
   // Leaderboard operations
   getLeaderboard(limit?: number): Promise<User[]>;
@@ -61,6 +65,7 @@ export class MemStorage implements IStorage {
       accuracy: 0,
       wordsSpelled: 0,
       gamesWon: 0,
+      gamesPlayed: 0,
       bestStreak: 0,
       achievements: [],
       createdAt: new Date(),
@@ -168,6 +173,21 @@ export class MemStorage implements IStorage {
     return this.gameSessions.delete(id);
   }
 
+  // Achievement operations
+  async getUserAchievements(userId: string): Promise<UserAchievement[]> {
+    return []; // Not implemented for MemStorage
+  }
+
+  async unlockAchievement(userId: string, achievementId: string): Promise<UserAchievement> {
+    // Not implemented for MemStorage
+    return {
+      id: randomUUID(),
+      userId,
+      achievementId,
+      unlockedAt: new Date()
+    };
+  }
+
   // Leaderboard operations
   async getLeaderboard(limit: number = 10): Promise<User[]> {
     return Array.from(this.users.values())
@@ -208,6 +228,7 @@ export class DatabaseStorage implements IStorage {
         accuracy: 0,
         wordsSpelled: 0,
         gamesWon: 0,
+        gamesPlayed: 0,
         bestStreak: 0,
         achievements: [],
       })
@@ -309,6 +330,35 @@ export class DatabaseStorage implements IStorage {
   async deleteGameSession(id: string): Promise<boolean> {
     const result = await db.delete(gameSessions).where(eq(gameSessions.id, id));
     return (result.rowCount ?? 0) > 0;
+  }
+
+  // Achievement operations
+  async getUserAchievements(userId: string): Promise<UserAchievement[]> {
+    return await db.select().from(userAchievements).where(eq(userAchievements.userId, userId));
+  }
+
+  async unlockAchievement(userId: string, achievementId: string): Promise<UserAchievement> {
+    try {
+      const [achievement] = await db
+        .insert(userAchievements)
+        .values({
+          userId,
+          achievementId
+        })
+        .returning();
+      return achievement;
+    } catch (error: any) {
+      // If duplicate, just return the existing record
+      if (error?.code === '23505') { // PostgreSQL unique violation error code
+        const [existing] = await db
+          .select()
+          .from(userAchievements)
+          .where(sql`${userAchievements.userId} = ${userId} AND ${userAchievements.achievementId} = ${achievementId}`)
+          .limit(1);
+        return existing;
+      }
+      throw error;
+    }
   }
 
   // Leaderboard operations

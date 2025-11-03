@@ -117,6 +117,7 @@ export function useGameState() {
         accuracy: dbUserData.accuracy || 0,
         wordsSpelled: dbUserData.wordsSpelled || 0,
         gamesWon: dbUserData.gamesWon || 0,
+        gamesPlayed: dbUserData.gamesPlayed || 0,
         bestStreak: dbUserData.bestStreak || 0,
         level: dbUserData.level || 1
       }));

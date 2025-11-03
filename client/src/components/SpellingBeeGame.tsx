@@ -186,6 +186,8 @@ export default function SpellingBeeGame({
     if (gameOver && userId && !resultsSavedRef.current) {
       resultsSavedRef.current = true;
       
+      const accuracy = totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0;
+      
       // Save results to database
       apiRequest('POST', '/api/game-results', {
         userId,
@@ -194,14 +196,27 @@ export default function SpellingBeeGame({
         totalAttempts
       })
         .then(() => {
-          // Invalidate user cache to update progress card
+          // Check for newly unlocked achievements
+          return apiRequest('POST', '/api/achievements/check', {
+            userId,
+            gameData: {
+              score,
+              accuracy,
+              timeRemaining: timeLeft,
+              currentStreak: correctCount // Using correctCount as current streak for simplicity
+            }
+          });
+        })
+        .then(() => {
+          // Invalidate caches to update progress card and achievements
           queryClient.invalidateQueries({ queryKey: ['/api/users', userId] });
+          queryClient.invalidateQueries({ queryKey: ['/api/users', userId, 'achievements'] });
         })
         .catch((error) => {
-          console.error('Failed to save game results:', error);
+          console.error('Failed to save game results or check achievements:', error);
         });
     }
-  }, [gameOver, userId, score, correctCount, totalAttempts]);
+  }, [gameOver, userId, score, correctCount, totalAttempts, timeLeft]);
 
   const handleTimeOut = () => {
     // Game over - show results screen

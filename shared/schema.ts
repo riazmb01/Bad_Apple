@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   accuracy: integer("accuracy").default(0),
   wordsSpelled: integer("words_spelled").default(0),
   gamesWon: integer("games_won").default(0),
+  gamesPlayed: integer("games_played").default(0),
   bestStreak: integer("best_streak").default(0),
   achievements: jsonb("achievements").default([]),
   createdAt: timestamp("created_at").defaultNow(),
@@ -48,6 +49,23 @@ export const gameSessions = pgTable("game_sessions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const achievements = pgTable("achievements", {
+  id: varchar("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  icon: text("icon").notNull(),
+  criteria: jsonb("criteria").notNull(),
+});
+
+export const userAchievements = pgTable("user_achievements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  achievementId: varchar("achievement_id").references(() => achievements.id).notNull(),
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+}, (table) => ({
+  uniqueUserAchievement: sql`UNIQUE (${table.userId}, ${table.achievementId})`,
+}));
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -66,6 +84,13 @@ export const insertGameSessionSchema = createInsertSchema(gameSessions).omit({
   createdAt: true,
 });
 
+export const insertAchievementSchema = createInsertSchema(achievements);
+
+export const insertUserAchievementSchema = createInsertSchema(userAchievements).omit({
+  id: true,
+  unlockedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -73,6 +98,10 @@ export type GameRoom = typeof gameRooms.$inferSelect;
 export type InsertGameRoom = z.infer<typeof insertGameRoomSchema>;
 export type GameSession = typeof gameSessions.$inferSelect;
 export type InsertGameSession = z.infer<typeof insertGameSessionSchema>;
+export type Achievement = typeof achievements.$inferSelect;
+export type InsertAchievement = z.infer<typeof insertAchievementSchema>;
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertUserAchievement = z.infer<typeof insertUserAchievementSchema>;
 
 // Game-specific types
 export interface Word {
@@ -109,14 +138,118 @@ export interface PlayerState {
   hintsUsed: number;
 }
 
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  points: number;
+export interface AchievementWithStatus extends Achievement {
+  unlocked: boolean;
   unlockedAt?: Date;
 }
+
+export const ACHIEVEMENT_DEFINITIONS = [
+  {
+    id: "first_word",
+    name: "First Steps",
+    description: "Spell your first word correctly",
+    icon: "🌟",
+    criteria: { type: "words_spelled", count: 1 }
+  },
+  {
+    id: "word_warrior",
+    name: "Word Warrior",
+    description: "Spell 50 words correctly",
+    icon: "⚔️",
+    criteria: { type: "words_spelled", count: 50 }
+  },
+  {
+    id: "spelling_master",
+    name: "Spelling Master",
+    description: "Spell 200 words correctly",
+    icon: "👑",
+    criteria: { type: "words_spelled", count: 200 }
+  },
+  {
+    id: "perfectionist",
+    name: "Perfectionist",
+    description: "Achieve 100% accuracy in a game",
+    icon: "💯",
+    criteria: { type: "perfect_accuracy", count: 1 }
+  },
+  {
+    id: "speedster",
+    name: "Speedster",
+    description: "Complete a game with more than 30 seconds remaining",
+    icon: "⚡",
+    criteria: { type: "time_remaining", seconds: 30 }
+  },
+  {
+    id: "streak_starter",
+    name: "Streak Starter",
+    description: "Get 5 words correct in a row",
+    icon: "🔥",
+    criteria: { type: "streak", count: 5 }
+  },
+  {
+    id: "hot_streak",
+    name: "Hot Streak",
+    description: "Get 10 words correct in a row",
+    icon: "🔥🔥",
+    criteria: { type: "streak", count: 10 }
+  },
+  {
+    id: "on_fire",
+    name: "On Fire!",
+    description: "Get 20 words correct in a row",
+    icon: "🔥🔥🔥",
+    criteria: { type: "streak", count: 20 }
+  },
+  {
+    id: "century_club",
+    name: "Century Club",
+    description: "Score 100 points in a single game",
+    icon: "💰",
+    criteria: { type: "game_score", points: 100 }
+  },
+  {
+    id: "dedicated",
+    name: "Dedicated",
+    description: "Play 10 games",
+    icon: "🎮",
+    criteria: { type: "games_played", count: 10 }
+  },
+  {
+    id: "level_up",
+    name: "Level Up",
+    description: "Reach level 5",
+    icon: "📈",
+    criteria: { type: "level", level: 5 }
+  },
+  {
+    id: "scholar",
+    name: "Scholar",
+    description: "Reach level 10",
+    icon: "🎓",
+    criteria: { type: "level", level: 10 }
+  },
+  {
+    id: "word_collector",
+    name: "Word Collector",
+    description: "Spell 100 unique words",
+    icon: "📚",
+    criteria: { type: "words_spelled", count: 100 }
+  },
+  {
+    id: "time_manager",
+    name: "Time Manager",
+    description: "Complete 5 games without running out of time",
+    icon: "⏱️",
+    criteria: { type: "games_completed", count: 5 }
+  },
+  {
+    id: "accuracy_ace",
+    name: "Accuracy Ace",
+    description: "Maintain 90% accuracy or higher",
+    icon: "🎯",
+    criteria: { type: "accuracy", percentage: 90 }
+  }
+] as const;
 
 export interface GameSettings {
   timePerWord: number;
