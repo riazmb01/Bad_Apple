@@ -60,15 +60,16 @@ export default function SpellingBeeGame({
   const [batchCounter, setBatchCounter] = useState(0);
   const [voicesReady, setVoicesReady] = useState(false);
 
-  // Fetch initial words
+  // Fetch initial words - only once per component mount
   const { data: initialWords, refetch: refetchInitial } = useQuery<Word[]>({
-    queryKey: ['/api/words/batch', { count: 5, batch: 'initial', timestamp: Date.now() }],
+    queryKey: ['/api/words/batch', 'initial'],
     queryFn: async () => {
       const res = await fetch('/api/words/batch?count=5');
       if (!res.ok) throw new Error('Failed to fetch words');
       return res.json();
     },
-    enabled: words.length === 0,
+    staleTime: Infinity, // Never refetch automatically
+    gcTime: Infinity, // Keep in cache forever
   });
 
   // Fetch next batch of words (when on 4th word, which is index 3)
@@ -97,12 +98,15 @@ export default function SpellingBeeGame({
     });
   }, []);
 
+  // Only set initial words once when both voices and words are ready
+  const hasSetInitialWords = useRef(false);
   useEffect(() => {
-    if (initialWords && words.length === 0 && voicesReady) {
+    if (initialWords && words.length === 0 && voicesReady && !hasSetInitialWords.current) {
       console.log('Setting initial words now that voices are ready');
       setWords(initialWords);
+      hasSetInitialWords.current = true;
     }
-  }, [initialWords, voicesReady]);
+  }, [initialWords, voicesReady, words.length]);
 
   useEffect(() => {
     if (prefetchedWords && nextWords.length === 0 && !isPrefetching) {
