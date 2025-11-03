@@ -86,7 +86,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AppHeader user={currentUser} dbUserId={dbUserId} />
+      <AppHeader user={currentUser} dbUserId={dbUserId || undefined} />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back to Menu Button */}
@@ -240,7 +240,7 @@ export default function Home() {
           <MultiplayerGameView
             gameState={gameState}
             connectedPlayers={connectedPlayers}
-            currentUserId={currentUser.id}
+            currentUserId={dbUserId || currentUser.id}
             onSubmitAnswer={submitAnswer}
             onUseHint={(hintType: string) => useHint(hintType as 'firstLetter' | 'definition' | 'sentence')}
             onSkipWord={handleSkipWord}
@@ -259,7 +259,7 @@ export default function Home() {
               correctAnswers: session.correctAnswers || 0,
               totalAnswers: session.totalAnswers || 0
             }))}
-            currentUserId={currentUser.id}
+            currentUserId={dbUserId || currentUser.id}
             onBackToMenu={handleBackToMenu}
           />
         )}

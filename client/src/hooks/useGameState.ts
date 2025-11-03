@@ -147,7 +147,7 @@ export function useGameState() {
 
   // Auto-rejoin on reconnection
   useEffect(() => {
-    if (connectionState === 'connected' && !isInRoom) {
+    if (connectionState === 'connected' && !isInRoom && dbUserId) {
       const storedRoom = localStorage.getItem('currentRoom');
       if (storedRoom) {
         try {
@@ -172,7 +172,7 @@ export function useGameState() {
         }
       }
     }
-  }, [connectionState, isInRoom]);
+  }, [connectionState, isInRoom, dbUserId]);
 
   const handleWebSocketMessage = (message: any) => {
     switch (message.type) {
@@ -183,6 +183,19 @@ export function useGameState() {
         if (message.payload.players) {
           setConnectedPlayers(message.payload.players);
         }
+        // Store room info for reconnection (use dbUserId)
+        if (dbUserId) {
+          localStorage.setItem('currentRoom', JSON.stringify({
+            roomCode: message.payload.room.code,
+            userId: dbUserId,
+            username: currentUser.username
+          }));
+        }
+        toast({
+          title: "Room Created!",
+          description: `Room code: ${message.payload.room.code}`,
+          variant: "default"
+        });
         break;
       case 'room_joined':
         setIsInRoom(true);
@@ -191,12 +204,19 @@ export function useGameState() {
         if (message.payload.players) {
           setConnectedPlayers(message.payload.players);
         }
-        // Store room info for reconnection
-        localStorage.setItem('currentRoom', JSON.stringify({
-          roomCode: message.payload.room.code,
-          userId: currentUser.id,
-          username: currentUser.username
-        }));
+        // Store room info for reconnection (use dbUserId)
+        if (dbUserId) {
+          localStorage.setItem('currentRoom', JSON.stringify({
+            roomCode: message.payload.room.code,
+            userId: dbUserId,
+            username: currentUser.username
+          }));
+        }
+        toast({
+          title: "Joined Room!",
+          description: `You're in room ${message.payload.room.code}`,
+          variant: "default"
+        });
         break;
       case 'player_joined':
         if (message.payload.players) {
@@ -254,8 +274,8 @@ export function useGameState() {
         }
         break;
       case 'answer_submitted':
-        // Handle answer feedback
-        if (message.payload.userId === currentUser.id) {
+        // Handle answer feedback - compare against dbUserId since server sends database IDs
+        if (message.payload.userId === dbUserId) {
           // Update player's own score
           setPlayerState(prev => prev ? {
             ...prev,
@@ -268,9 +288,28 @@ export function useGameState() {
         break;
       case 'error':
         console.error('Game error:', message.payload.message);
+        
+        // Provide user-friendly error messages
+        let errorTitle = "Error";
+        let errorDescription = message.payload.message;
+        
+        if (message.payload.message.includes('Room not found')) {
+          errorTitle = "Room Not Found";
+          errorDescription = "This room doesn't exist or has expired. Please check the room code and try again.";
+        } else if (message.payload.message.includes('Room is full')) {
+          errorTitle = "Room Full";
+          errorDescription = "This room has reached its maximum capacity. Try creating a new room.";
+        } else if (message.payload.message.includes('already in progress')) {
+          errorTitle = "Game In Progress";
+          errorDescription = "This game has already started. Please join another room.";
+        } else if (message.payload.message.includes('Failed to create room')) {
+          errorTitle = "Creation Failed";
+          errorDescription = "Unable to create room. Please try again.";
+        }
+        
         toast({
-          title: "Error",
-          description: message.payload.message,
+          title: errorTitle,
+          description: errorDescription,
           variant: "destructive"
         });
         break;
@@ -278,15 +317,10 @@ export function useGameState() {
   };
 
   const createRoom = (gameMode: string, difficulty: string, settings?: any) => {
-    console.log('[CREATE_ROOM] Called with:', { gameMode, difficulty, settings });
-    console.log('[CREATE_ROOM] Current user:', currentUser);
-    console.log('[CREATE_ROOM] User ready:', isUserReady);
-    console.log('[CREATE_ROOM] Connection state:', connectionState);
-    
-    if (!isUserReady) {
+    if (!isUserReady || !dbUserId) {
       toast({
-        title: "Please wait",
-        description: "Loading user data...",
+        title: "Please Wait",
+        description: "Setting up your account...",
         variant: "default"
       });
       return;
@@ -295,7 +329,7 @@ export function useGameState() {
     const message = {
       type: 'create_room',
       payload: {
-        hostId: currentUser.id,
+        hostId: dbUserId, // Use database user ID
         username: currentUser.username,
         gameMode,
         difficulty,
@@ -303,12 +337,17 @@ export function useGameState() {
       }
     };
     
-    console.log('[CREATE_ROOM] Sending message:', message);
+    toast({
+      title: "Creating Room",
+      description: "Setting up your classroom battle...",
+      variant: "default"
+    });
+    
     sendMessage(message);
   };
 
   const joinRoom = (code: string) => {
-    if (!isUserReady) {
+    if (!isUserReady || !dbUserId) {
       toast({
         title: "Please wait",
         description: "Loading user data...",
@@ -341,7 +380,7 @@ export function useGameState() {
       type: 'join_room',
       payload: {
         roomCode: code.toUpperCase(),
-        userId: currentUser.id,
+        userId: dbUserId, // Use database user ID
         username: currentUser.username
       }
     });
