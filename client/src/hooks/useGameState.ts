@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { GameState, PlayerState, Word, Achievement } from "@shared/schema";
 import { useWebSocket } from "./useWebSocket";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 export function useGameState() {
   const { toast } = useToast();
@@ -99,6 +100,29 @@ export function useGameState() {
     
     createUserIfNeeded();
   }, []);
+
+  // Fetch user data from database to get actual points, streak, etc.
+  const { data: dbUserData } = useQuery({
+    queryKey: ['/api/users', dbUserId],
+    enabled: !!dbUserId,
+  });
+
+  // Update currentUser with actual database values when data is fetched
+  useEffect(() => {
+    if (dbUserData) {
+      setCurrentUser(prev => ({
+        ...prev,
+        points: dbUserData.points || 0,
+        streak: dbUserData.streak || 0,
+        accuracy: dbUserData.accuracy || 0,
+        wordsSpelled: dbUserData.wordsSpelled || 0,
+        gamesWon: dbUserData.gamesWon || 0,
+        bestStreak: dbUserData.bestStreak || 0,
+        level: dbUserData.level || 1
+      }));
+    }
+  }, [dbUserData]);
+
   const [roomCode, setRoomCode] = useState<string>("");
   const [isInRoom, setIsInRoom] = useState(false);
   const [connectedPlayers, setConnectedPlayers] = useState<PlayerState[]>([]);
