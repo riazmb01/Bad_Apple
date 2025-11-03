@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
-import { Volume2, Lightbulb, Forward, Pause, Check } from "lucide-react";
+import { Volume2, Lightbulb, Forward, Pause, Check, Trophy, Home, RotateCw, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { speakWord } from "@/utils/speechUtils";
 import { useQuery } from "@tanstack/react-query";
 
@@ -31,7 +32,8 @@ export default function SpellingBeeGame({
   onPauseGame 
 }: SpellingBeeGameProps) {
   const [userInput, setUserInput] = useState("");
-  const [timeLeft, setTimeLeft] = useState(45);
+  const [timeLeft, setTimeLeft] = useState(60);
+  const [gameOver, setGameOver] = useState(false);
   const timeoutRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [hintsUsed, setHintsUsed] = useState({
@@ -129,11 +131,9 @@ export default function SpellingBeeGame({
     }
   }, [currentWord]);
 
-  // Reset on word changes
+  // Reset hints and feedback on word changes (but NOT timer)
   useEffect(() => {
-    timeoutRef.current = false;
     setUserInput('');
-    setTimeLeft(45);
     setFeedback({ show: false, isCorrect: false, message: '' });
     setHintsUsed({
       firstLetter: false,
@@ -142,14 +142,22 @@ export default function SpellingBeeGame({
     });
   }, [currentWordIndex]);
 
+  // Timer countdown - runs continuously, not reset per word
   useEffect(() => {
+    if (gameOver) {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      return;
+    }
+
     if (intervalRef.current) clearInterval(intervalRef.current);
     
     intervalRef.current = setInterval(() => {
       setTimeLeft((prev: number) => {
         if (prev <= 1 && !timeoutRef.current) {
           timeoutRef.current = true;
-          setUserInput('');
           handleTimeOut();
           if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -166,17 +174,17 @@ export default function SpellingBeeGame({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [currentWordIndex]);
+  }, [gameOver]);
 
   const handleTimeOut = () => {
-    setTotalAttempts(prev => prev + 1);
-    // Notify parent component that time expired
-    onSubmitAnswer('');
-    setCurrentWordIndex(prev => prev + 1);
+    // Game over - show results screen
+    setGameOver(true);
+    // Reset timeout ref so next game can timeout properly
+    timeoutRef.current = false;
   };
 
   const handleSubmit = () => {
-    if (userInput.trim() && currentWord) {
+    if (userInput.trim() && currentWord && !gameOver) {
       const isCorrect = userInput.trim().toLowerCase() === currentWord.word.toLowerCase();
       
       setTotalAttempts(prev => prev + 1);
@@ -188,10 +196,14 @@ export default function SpellingBeeGame({
         if (hintsUsed.definition) points -= 3;
         if (hintsUsed.sentence) points -= 3;
         setScore(prev => prev + Math.max(points, 1));
+        
+        // Add 10 seconds to timer for correct answer
+        setTimeLeft(prev => prev + 10);
+        
         setFeedback({
           show: true,
           isCorrect: true,
-          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points!`
+          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +10 seconds`
         });
       } else {
         setFeedback({
@@ -231,13 +243,39 @@ export default function SpellingBeeGame({
   };
 
   const handleSkipWord = () => {
-    setTotalAttempts(prev => prev + 1);
-    // Notify parent component that word was skipped
-    onSkipWord();
-    setCurrentWordIndex(prev => prev + 1);
+    if (!gameOver) {
+      setTotalAttempts(prev => prev + 1);
+      // Notify parent component that word was skipped
+      onSkipWord();
+      setCurrentWordIndex(prev => prev + 1);
+    }
   };
 
-  const timeProgress = ((45 - timeLeft) / 45) * 100;
+  const handlePlayAgain = () => {
+    // Reset all game state including timeout ref
+    setGameOver(false);
+    setTimeLeft(60);
+    setScore(0);
+    setCorrectCount(0);
+    setTotalAttempts(0);
+    setCurrentWordIndex(0);
+    setUserInput('');
+    setFeedback({ show: false, isCorrect: false, message: '' });
+    setHintsUsed({ firstLetter: false, definition: false, sentence: false });
+    timeoutRef.current = false;
+    // Refetch words
+    refetchInitial();
+  };
+
+  const handleBackToMenu = () => {
+    // Navigate back to main menu
+    window.location.reload();
+  };
+
+  // Calculate progress - clamp between 0-100% to handle bonus time correctly
+  // When time > 60 (from bonuses), show 0% progress (full circle)
+  // When time approaches 0, show ~100% progress (nearly empty)
+  const timeProgress = Math.min(100, Math.max(0, ((60 - timeLeft) / 60) * 100));
 
   return (
     <section className="mb-12" data-testid="spelling-bee-game">
@@ -421,6 +459,84 @@ export default function SpellingBeeGame({
           </div>
         </CardContent>
       </Card>
+
+      {/* Game Over Dialog */}
+      <Dialog open={gameOver} onOpenChange={setGameOver}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-game-over">
+          <DialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <Trophy className="w-16 h-16 text-yellow-500" />
+            </div>
+            <DialogTitle className="text-center text-2xl">Game Over!</DialogTitle>
+            <DialogDescription className="text-center">
+              Time's up! Here's how you did:
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Score Summary */}
+            <div className="bg-accent/10 rounded-lg p-4 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-semibold">Final Score:</span>
+                <span className="text-2xl font-bold text-accent" data-testid="final-score">{score}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Words Attempted:</span>
+                <span className="font-medium" data-testid="words-attempted">{totalAttempts}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Correct Answers:</span>
+                <span className="font-medium text-green-600" data-testid="correct-answers">{correctCount}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Accuracy:</span>
+                <span className="font-medium" data-testid="accuracy-percentage">
+                  {totalAttempts > 0 ? Math.round((correctCount / totalAttempts) * 100) : 0}%
+                </span>
+              </div>
+            </div>
+
+            {/* Performance Message */}
+            <div className="text-center text-sm text-muted-foreground">
+              {correctCount === 0 && "Keep practicing! Every expert was once a beginner."}
+              {correctCount > 0 && correctCount < 5 && "Good effort! You're on the right track."}
+              {correctCount >= 5 && correctCount < 10 && "Nice work! You're getting better!"}
+              {correctCount >= 10 && correctCount < 15 && "Excellent spelling! Keep it up!"}
+              {correctCount >= 15 && "Outstanding performance! You're a spelling master!"}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-col space-y-2 pt-2">
+              <Button 
+                onClick={handlePlayAgain}
+                className="w-full"
+                data-testid="button-play-again"
+              >
+                <RotateCw className="mr-2 w-4 h-4" />
+                Play Again
+              </Button>
+              <Button 
+                onClick={handleBackToMenu}
+                variant="outline"
+                className="w-full"
+                data-testid="button-back-to-menu"
+              >
+                <Home className="mr-2 w-4 h-4" />
+                Back to Main Menu
+              </Button>
+              <Button 
+                variant="secondary"
+                className="w-full"
+                disabled
+                data-testid="button-share-score"
+              >
+                <Share2 className="mr-2 w-4 h-4" />
+                Share Score (Coming Soon)
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
