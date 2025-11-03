@@ -875,5 +875,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Save solo spelling bee game results
+  app.post("/api/game-results", async (req, res) => {
+    try {
+      const { userId, score, correctAnswers, totalAttempts } = req.body;
+      
+      if (!userId || score === undefined || correctAnswers === undefined || totalAttempts === undefined) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      // Calculate accuracy for this game
+      const gameAccuracy = totalAttempts > 0 
+        ? Math.round((correctAnswers / totalAttempts) * 100)
+        : 0;
+
+      // Update user's overall accuracy (average with existing)
+      const newAccuracy = user.accuracy 
+        ? Math.round((user.accuracy + gameAccuracy) / 2)
+        : gameAccuracy;
+
+      // Update user stats
+      const updatedUser = await storage.updateUser(userId, {
+        points: (user.points || 0) + score,
+        wordsSpelled: (user.wordsSpelled || 0) + correctAnswers,
+        accuracy: newAccuracy,
+        gamesWon: (user.gamesWon || 0) + 1, // Count each completed game as a "win"
+      });
+
+      res.json(updatedUser);
+    } catch (error) {
+      console.error('Failed to save game results:', error);
+      res.status(500).json({ message: "Failed to save game results" });
+    }
+  });
+
   return httpServer;
 }
