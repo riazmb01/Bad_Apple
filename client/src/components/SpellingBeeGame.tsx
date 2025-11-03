@@ -197,13 +197,13 @@ export default function SpellingBeeGame({
         if (hintsUsed.sentence) points -= 3;
         setScore(prev => prev + Math.max(points, 1));
         
-        // Add 10 seconds to timer for correct answer
-        setTimeLeft(prev => prev + 10);
+        // Add 5 seconds to timer for correct answer
+        setTimeLeft(prev => prev + 5);
         
         setFeedback({
           show: true,
           isCorrect: true,
-          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +10 seconds`
+          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +5 seconds`
         });
       } else {
         setFeedback({
