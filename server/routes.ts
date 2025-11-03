@@ -3,7 +3,6 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession } from "@shared/schema";
-import { wordBank } from "../client/src/data/wordBank";
 import { getWordsCollection } from "./mongodb";
 
 interface WebSocketClient extends WebSocket {
@@ -451,26 +450,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
-    const gameState: GameState = {
-      currentRound: 1,
-      totalRounds: 10,
-      timeLeft: 45,
-      isActive: true,
-      players: [],
-      gameMode: room.gameMode as any,
-      difficulty: room.difficulty as any,
-      currentWord: await getRandomWord(room.difficulty as any)
-    };
+    try {
+      const gameState: GameState = {
+        currentRound: 1,
+        totalRounds: 10,
+        timeLeft: 45,
+        isActive: true,
+        players: [],
+        gameMode: room.gameMode as any,
+        difficulty: room.difficulty as any,
+        currentWord: await getRandomWord(room.difficulty as any)
+      };
 
-    await storage.updateGameRoom(room.id, {
-      isActive: true,
-      gameState: gameState
-    });
+      await storage.updateGameRoom(room.id, {
+        isActive: true,
+        gameState: gameState
+      });
 
-    broadcastToRoom(room.id, {
-      type: 'game_started',
-      payload: { gameState }
-    });
+      broadcastToRoom(room.id, {
+        type: 'game_started',
+        payload: { gameState }
+      });
+    } catch (error) {
+      console.error('Failed to start game - words unavailable:', error);
+      broadcastToRoom(room.id, {
+        type: 'error',
+        payload: { message: 'Game mode unavailable - words cannot be fetched from database. Please try again later.' }
+      });
+    }
   }
 
   async function handleSubmitAnswer(ws: WebSocketClient, payload: any) {
@@ -596,19 +603,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
-    // Next round
-    gameState.currentRound++;
-    gameState.currentWord = await getRandomWord(gameState.difficulty);
-    gameState.timeLeft = 45;
+    try {
+      // Next round
+      gameState.currentRound++;
+      gameState.currentWord = await getRandomWord(gameState.difficulty);
+      gameState.timeLeft = 45;
 
-    await storage.updateGameRoom(roomId, {
-      gameState: gameState
-    });
+      await storage.updateGameRoom(roomId, {
+        gameState: gameState
+      });
 
-    broadcastToRoom(roomId, {
-      type: 'next_round',
-      payload: { gameState }
-    });
+      broadcastToRoom(roomId, {
+        type: 'next_round',
+        payload: { gameState }
+      });
+    } catch (error) {
+      console.error('Failed to get next word - words unavailable:', error);
+      broadcastToRoom(roomId, {
+        type: 'error',
+        payload: { message: 'Game mode unavailable - words cannot be fetched from database. Please try again later.' }
+      });
+      // End the game gracefully if we can't fetch more words
+      await endGame(roomId);
+    }
   }
 
   async function endGame(roomId: string) {
@@ -695,12 +712,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
     } catch (error) {
-      console.error('Failed to fetch word from MongoDB, using fallback:', error);
+      console.error('Failed to fetch word from MongoDB:', error);
+      throw new Error('Words database unavailable. Please try again later.');
     }
     
-    // Fallback to static word bank if MongoDB fails
-    const wordsForDifficulty = wordBank.filter(word => word.difficulty === difficulty);
-    return wordsForDifficulty[Math.floor(Math.random() * wordsForDifficulty.length)];
+    // No words found in MongoDB
+    throw new Error('Words database unavailable. Please try again later.');
   }
 
   function broadcastToRoom(roomId: string, message: any) {
@@ -778,9 +795,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/words/random", async (req, res) => {
-    const difficulty = req.query.difficulty as string || "intermediate";
-    const word = await getRandomWord(difficulty);
-    res.json(word);
+    try {
+      const difficulty = req.query.difficulty as string || "intermediate";
+      const word = await getRandomWord(difficulty);
+      res.json(word);
+    } catch (error) {
+      console.error('Failed to get random word:', error);
+      res.status(503).json({ 
+        message: "Game mode unavailable - words cannot be fetched from database. Please try again later." 
+      });
+    }
   });
 
   app.get("/api/words/batch", async (req, res) => {
@@ -788,73 +812,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const count = parseInt(req.query.count as string) || 5;
       const difficulty = req.query.difficulty as string;
       
-      try {
-        const wordsCollection = await getWordsCollection();
-        
-        // ex1DB doesn't have difficulty field, so we fetch random words
-        const rawWords = await wordsCollection
-          .aggregate([
-            { $sample: { size: count * 2 } } // Fetch extra to ensure we have enough with examples
-          ])
-          .toArray();
-        
-        // Transform ex1DB structure to game format
-        const transformedWords = rawWords
-          .map((doc: any) => {
-            if (!doc.data?.[0]?.meanings?.[0]?.definitions) return null;
-            
-            // Find first definition with an example
-            let selectedDef = null;
-            let selectedPartOfSpeech = '';
-            
-            for (const meaning of doc.data[0].meanings) {
-              const defWithExample = meaning.definitions.find((def: any) => def.example);
-              if (defWithExample) {
-                selectedDef = defWithExample;
-                selectedPartOfSpeech = meaning.partOfSpeech || 'word';
-                break;
-              }
+      const wordsCollection = await getWordsCollection();
+      
+      // ex1DB doesn't have difficulty field, so we fetch random words
+      const rawWords = await wordsCollection
+        .aggregate([
+          { $sample: { size: count * 2 } } // Fetch extra to ensure we have enough with examples
+        ])
+        .toArray();
+      
+      // Transform ex1DB structure to game format
+      const transformedWords = rawWords
+        .map((doc: any) => {
+          if (!doc.data?.[0]?.meanings?.[0]?.definitions) return null;
+          
+          // Find first definition with an example
+          let selectedDef = null;
+          let selectedPartOfSpeech = '';
+          
+          for (const meaning of doc.data[0].meanings) {
+            const defWithExample = meaning.definitions.find((def: any) => def.example);
+            if (defWithExample) {
+              selectedDef = defWithExample;
+              selectedPartOfSpeech = meaning.partOfSpeech || 'word';
+              break;
             }
-            
-            // If no definition with example, use first definition
-            if (!selectedDef) {
-              selectedDef = doc.data[0].meanings[0].definitions[0];
-              selectedPartOfSpeech = doc.data[0].meanings[0].partOfSpeech || 'word';
-            }
-            
-            return {
-              id: doc._id?.toString() || doc.word,
-              word: doc.word,
-              definition: selectedDef.definition || '',
-              exampleSentence: selectedDef.example || '',
-              partOfSpeech: selectedPartOfSpeech,
-              difficulty: 'intermediate' as const,
-              pronunciation: '',
-              syllables: 0
-            };
-          })
-          .filter((word: any) => word && word.definition) // Only include words with definitions
-          .slice(0, count); // Limit to requested count
-        
-        if (transformedWords.length > 0) {
-          return res.json(transformedWords);
-        }
-      } catch (mongoError) {
-        console.error('Failed to fetch words from MongoDB, using fallback:', mongoError);
+          }
+          
+          // If no definition with example, use first definition
+          if (!selectedDef) {
+            selectedDef = doc.data[0].meanings[0].definitions[0];
+            selectedPartOfSpeech = doc.data[0].meanings[0].partOfSpeech || 'word';
+          }
+          
+          return {
+            id: doc._id?.toString() || doc.word,
+            word: doc.word,
+            definition: selectedDef.definition || '',
+            exampleSentence: selectedDef.example || '',
+            partOfSpeech: selectedPartOfSpeech,
+            difficulty: 'intermediate' as const,
+            pronunciation: '',
+            syllables: 0
+          };
+        })
+        .filter((word: any) => word && word.definition) // Only include words with definitions
+        .slice(0, count); // Limit to requested count
+      
+      if (transformedWords.length > 0) {
+        return res.json(transformedWords);
       }
       
-      // Fallback to static word bank if MongoDB fails or returns no words
-      const filtered = difficulty 
-        ? wordBank.filter(word => word.difficulty === difficulty)
-        : wordBank;
-      
-      const shuffled = filtered.sort(() => Math.random() - 0.5);
-      const selected = shuffled.slice(0, count);
-      
-      res.json(selected);
+      // No words found in MongoDB
+      res.status(503).json({ 
+        message: "Game mode unavailable - words cannot be fetched from database. Please try again later." 
+      });
     } catch (error) {
-      console.error('Error in batch endpoint:', error);
-      res.status(500).json({ message: "Failed to fetch words" });
+      console.error('Failed to fetch words from MongoDB:', error);
+      res.status(503).json({ 
+        message: "Game mode unavailable - words cannot be fetched from database. Please try again later." 
+      });
     }
   });
 
