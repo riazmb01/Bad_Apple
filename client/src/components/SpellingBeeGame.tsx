@@ -271,7 +271,7 @@ export default function SpellingBeeGame({
           let points = 10;
           if (hintsUsed.firstLetter) points -= 2;
           if (hintsUsed.definition) points -= 3;
-          if (hintsUsed.sentence) points -= 3;
+          if (hintsUsed.sentence) points -= 4;
           setScore(prev => prev + Math.max(points, 1));
           
           // Add 5 seconds to timer for correct answer (capped at 60 seconds max)
