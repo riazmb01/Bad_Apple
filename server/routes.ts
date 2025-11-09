@@ -1126,8 +1126,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? Math.round(((session.correctAnswers || 0) / (session.totalAnswers || 0)) * 100)
           : 0;
 
+        const newPoints = (user.points || 0) + (session.score || 0);
+        const newLevel = Math.floor(newPoints / 1000) + 1;
+        
         await storage.updateUser(user.id, {
-          points: (user.points || 0) + (session.score || 0),
+          points: newPoints,
+          level: newLevel,
           wordsSpelled: (user.wordsSpelled || 0) + (session.correctAnswers || 0),
           accuracy: Math.round(((user.accuracy || 0) + accuracy) / 2)
         });
@@ -1518,9 +1522,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? Math.round((user.accuracy + gameAccuracy) / 2)
         : gameAccuracy;
 
+      // Calculate new level based on points (1000 points per level)
+      const newPoints = (user.points || 0) + score;
+      const newLevel = Math.floor(newPoints / 1000) + 1;
+
       // Update user stats
       const updatedUser = await storage.updateUser(userId, {
-        points: (user.points || 0) + score,
+        points: newPoints,
+        level: newLevel,
         wordsSpelled: (user.wordsSpelled || 0) + correctAnswers,
         accuracy: newAccuracy,
         gamesWon: (user.gamesWon || 0) + 1, // Count each completed game as a "win"
