@@ -46,6 +46,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               await storage.deleteGameSession(session.id);
             }
             
+            // Clean up hint tracking before deleting room
+            resetRoomHints(room.id);
+            
             // Then delete the room
             await storage.deleteGameRoom(room.id);
           }
@@ -62,6 +65,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Track active timers for timed challenge rooms
   const activeTimers = new Map<string, NodeJS.Timeout>();
+
+  // Track hints used per word per player: Map<roomId, Map<userId, HintUsage>>
+  interface HintUsage {
+    firstLetter: boolean;
+    definition: boolean;
+    sentence: boolean;
+  }
+  const currentWordHints = new Map<string, Map<string, HintUsage>>();
+
+  // Helper to get or create hint tracking for a room
+  function getHintTracking(roomId: string): Map<string, HintUsage> {
+    if (!currentWordHints.has(roomId)) {
+      currentWordHints.set(roomId, new Map());
+    }
+    return currentWordHints.get(roomId)!;
+  }
+
+  // Helper to get or create hint usage for a player
+  function getPlayerHints(roomId: string, userId: string): HintUsage {
+    const roomHints = getHintTracking(roomId);
+    if (!roomHints.has(userId)) {
+      roomHints.set(userId, { firstLetter: false, definition: false, sentence: false });
+    }
+    return roomHints.get(userId)!;
+  }
+
+  // Helper to reset hints for all players in a room (when moving to next word)
+  function resetRoomHints(roomId: string) {
+    currentWordHints.delete(roomId);
+  }
 
   // Start a countdown timer for timed challenge mode
   function startTimedChallengeTimer(roomId: string, duration: number) {
@@ -403,6 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const remainingSessions = await storage.getGameSessionsByRoom(roomId);
     if (remainingSessions.length === 0) {
       console.log(`Room ${roomId} is empty after player left, cleaning up...`);
+      resetRoomHints(roomId);
       await storage.deleteGameRoom(roomId);
     } else {
       // Get updated player list and broadcast
@@ -443,6 +477,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const remainingSessions = await storage.getGameSessionsByRoom(roomId);
           if (remainingSessions.length === 0) {
             console.log(`Room ${roomId} is empty, cleaning up...`);
+            resetRoomHints(roomId);
             await storage.deleteGameRoom(roomId);
           } else {
             // Broadcast player removed
@@ -503,6 +538,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      // Reset hints for new game to prevent stale data from previous games
+      resetRoomHints(room.id);
+      
       const settings = room.settings as any || {};
       const competitionType = settings.competitionType || 'elimination';
       const timePerWord = parseInt(settings.timeLimit) || 45;
@@ -584,7 +622,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     const isCorrect = answer.toLowerCase() === currentWord.word.toLowerCase();
-    const points = isCorrect ? 100 : 0;
+    
+    // Calculate points based on hints used for this word
+    let points = 0;
+    if (isCorrect) {
+      points = 10; // Base points for correct answer
+      
+      // Get hints used for this word
+      const playerHints = getPlayerHints(room.id, ws.userId);
+      
+      // Deduct points for each hint used
+      if (playerHints.firstLetter) points -= 2;
+      if (playerHints.definition) points -= 3;
+      if (playerHints.sentence) points -= 4;
+      
+      // Ensure minimum of 1 point for correct answer
+      points = Math.max(points, 1);
+    }
     
     // Debug logging for answer checking
     console.log('[ANSWER_CHECK]', {
@@ -593,6 +647,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       submittedLower: answer.toLowerCase(),
       correctLower: currentWord.word.toLowerCase(),
       isCorrect,
+      points,
       isEliminationMode,
       userId: ws.userId,
       username: ws.username
@@ -774,29 +829,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return;
     }
 
+    // Track hint usage for this word
+    const playerHints = getPlayerHints(room.id, ws.userId);
+    
     let hintContent = '';
     let pointsDeducted = 0;
 
     switch (hintType) {
       case 'firstLetter':
+        playerHints.firstLetter = true;
         hintContent = currentWord.word.charAt(0).toUpperCase();
         pointsDeducted = 2;
         break;
       case 'definition':
+        playerHints.definition = true;
         hintContent = currentWord.definition;
         pointsDeducted = 3;
         break;
       case 'sentence':
+        playerHints.sentence = true;
         hintContent = currentWord.exampleSentence;
         pointsDeducted = 4;
         break;
     }
     
-    let updatedScore = 0;
+    // Update total hints used counter for stats (not score)
     if (userSession) {
-      updatedScore = Math.max(0, (userSession.score || 0) - pointsDeducted);
       await storage.updateGameSession(userSession.id, {
-        score: updatedScore,
         hintsUsed: (userSession.hintsUsed || 0) + 1
       });
     }
@@ -810,17 +869,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pointsDeducted
       }
     }));
-
-    // Broadcast score update to all players in the room for live leaderboard
-    broadcastToRoom(room.id, {
-      type: 'score_updated',
-      payload: {
-        userId: ws.userId,
-        username: ws.username,
-        score: updatedScore,
-        reason: 'hint_used'
-      }
-    });
   }
 
   async function handlePlayerReady(ws: WebSocketClient, payload: any) {
@@ -857,6 +905,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      // Reset hints for all players when moving to next word
+      resetRoomHints(roomId);
+      
       // Get settings for time per word
       const settings = room.settings as any || {};
       const timePerWord = parseInt(settings.timeLimit) || 45;
@@ -890,6 +941,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   async function endGame(roomId: string) {
     const room = await storage.getGameRoom(roomId);
     if (!room) return;
+
+    // Clean up hint tracking for this room
+    resetRoomHints(roomId);
 
     const sessions = await storage.getGameSessionsByRoom(roomId);
     
