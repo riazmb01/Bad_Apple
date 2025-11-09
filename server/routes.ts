@@ -682,6 +682,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const room = await storage.getGameRoom(ws.roomId);
     if (!room || !room.gameState) return;
 
+    // Check if hints are enabled in room settings
+    const roomSettings = room.settings as any || {};
+    if (roomSettings.hintsEnabled === false) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        payload: { message: 'Hints are disabled for this game' }
+      }));
+      return;
+    }
+
     const gameState = room.gameState as GameState;
     const currentWord = gameState.currentWord;
     

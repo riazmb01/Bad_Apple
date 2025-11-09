@@ -274,8 +274,8 @@ export function useGameState() {
         }
         break;
       case 'answer_submitted':
-        // Handle answer feedback - compare against dbUserId since server sends database IDs
-        if (message.payload.userId === dbUserId) {
+        // Handle answer feedback - compare against currentUser.id (localStorage UUID) since server sends localStorage UUIDs
+        if (message.payload.userId === currentUser.id) {
           // Update player's own score
           setPlayerState(prev => prev ? {
             ...prev,
@@ -316,7 +316,7 @@ export function useGameState() {
           setConnectedPlayers(message.payload.players);
         }
         // Show toast if the current user was eliminated
-        if (message.payload.userId === dbUserId) {
+        if (message.payload.userId === currentUser.id) {
           toast({
             title: "You've Been Eliminated!",
             description: "You got a word wrong and have been eliminated from this round. You can spectate the remaining players.",
@@ -335,7 +335,7 @@ export function useGameState() {
         break;
       case 'score_updated':
         // Update player score when they use a hint
-        if (message.payload.userId === dbUserId) {
+        if (message.payload.userId === currentUser.id) {
           // Update own score
           setPlayerState(prev => prev ? {
             ...prev,
