@@ -7,7 +7,6 @@ import MultiplayerLobby from "@/components/MultiplayerLobby";
 import MultiplayerGameView from "@/components/MultiplayerGameView";
 import MultiplayerResults from "@/components/MultiplayerResults";
 import GameStats from "@/components/GameStats";
-import Leaderboard from "@/components/Leaderboard";
 import { useGameState } from "@/hooks/useGameState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,10 +117,7 @@ export default function Home() {
           <>
             <GameModeSelector onSelectMode={handleSelectMode} />
             {dbUserId && (
-              <>
-                <GameStats userId={dbUserId} isUserReady={isUserReady} />
-                <Leaderboard currentUserId={dbUserId} />
-              </>
+              <GameStats userId={dbUserId} isUserReady={isUserReady} />
             )}
           </>
         )}
