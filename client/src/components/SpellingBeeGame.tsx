@@ -20,6 +20,7 @@ interface Word {
 interface SpellingBeeGameProps {
   gameState: any;
   userId: string | null;
+  hintsEnabled?: boolean; // Whether hints are enabled for this game
   onSubmitAnswer: (answer: string) => void;
   onUseHint: (hintType: string) => void;
   onSkipWord: () => void;
@@ -30,6 +31,7 @@ interface SpellingBeeGameProps {
 export default function SpellingBeeGame({ 
   gameState,
   userId, 
+  hintsEnabled = true,
   onSubmitAnswer, 
   onUseHint, 
   onSkipWord, 
@@ -454,67 +456,69 @@ export default function SpellingBeeGame({
             </div>
           </div>
 
-          {/* Hints Section */}
-          <Card className="mb-8">
-            <CardContent className="p-6">
-              <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center">
-                <Lightbulb className="text-yellow-500 mr-2 w-5 h-5" />
-                Hints Available
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* First Letter Hint */}
-                <Button 
-                  variant="outline"
-                  className="text-left p-4 h-auto flex-col items-start whitespace-normal"
-                  onClick={() => handleUseHint('firstLetter')}
-                  disabled={hintsUsed.firstLetter}
-                  data-testid="button-hint-first-letter"
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <span className="font-medium">First Letter</span>
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-2 pts</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground break-words leading-relaxed">
-                    {hintsUsed.firstLetter && currentWord ? `First letter: ${currentWord.word[0].toUpperCase()}` : "Reveal the first letter of the word"}
-                  </p>
-                </Button>
+          {/* Hints Section - Only show if hints are enabled */}
+          {hintsEnabled && (
+            <Card className="mb-8">
+              <CardContent className="p-6">
+                <h4 className="text-lg font-semibold text-foreground mb-4 flex items-center">
+                  <Lightbulb className="text-yellow-500 mr-2 w-5 h-5" />
+                  Hints Available
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* First Letter Hint */}
+                  <Button 
+                    variant="outline"
+                    className="text-left p-4 h-auto flex-col items-start whitespace-normal"
+                    onClick={() => handleUseHint('firstLetter')}
+                    disabled={hintsUsed.firstLetter}
+                    data-testid="button-hint-first-letter"
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <span className="font-medium">First Letter</span>
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-2 pts</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground break-words leading-relaxed">
+                      {hintsUsed.firstLetter && currentWord ? `First letter: ${currentWord.word[0].toUpperCase()}` : "Reveal the first letter of the word"}
+                    </p>
+                  </Button>
 
-                {/* Definition Hint */}
-                <Button 
-                  variant="outline"
-                  className="text-left p-4 h-auto flex-col items-start whitespace-normal"
-                  onClick={() => handleUseHint('definition')}
-                  disabled={hintsUsed.definition}
-                  data-testid="button-hint-definition"
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <span className="font-medium">Definition</span>
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-3 pts</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground break-words leading-relaxed">
-                    {hintsUsed.definition && currentWord?.definition ? currentWord.definition : "Show the word's meaning"}
-                  </p>
-                </Button>
+                  {/* Definition Hint */}
+                  <Button 
+                    variant="outline"
+                    className="text-left p-4 h-auto flex-col items-start whitespace-normal"
+                    onClick={() => handleUseHint('definition')}
+                    disabled={hintsUsed.definition}
+                    data-testid="button-hint-definition"
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <span className="font-medium">Definition</span>
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-3 pts</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground break-words leading-relaxed">
+                      {hintsUsed.definition && currentWord?.definition ? currentWord.definition : "Show the word's meaning"}
+                    </p>
+                  </Button>
 
-                {/* Example Sentence Hint */}
-                <Button 
-                  variant="outline"
-                  className="text-left p-4 h-auto flex-col items-start whitespace-normal"
-                  onClick={() => handleUseHint('sentence')}
-                  disabled={hintsUsed.sentence}
-                  data-testid="button-hint-sentence"
-                >
-                  <div className="flex items-center justify-between w-full mb-2">
-                    <span className="font-medium">Example</span>
-                    <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-3 pts</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground break-words leading-relaxed italic">
-                    {hintsUsed.sentence && currentWord?.exampleSentence ? currentWord.exampleSentence : "See the word used in context"}
-                  </p>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+                  {/* Example Sentence Hint */}
+                  <Button 
+                    variant="outline"
+                    className="text-left p-4 h-auto flex-col items-start whitespace-normal"
+                    onClick={() => handleUseHint('sentence')}
+                    disabled={hintsUsed.sentence}
+                    data-testid="button-hint-sentence"
+                  >
+                    <div className="flex items-center justify-between w-full mb-2">
+                      <span className="font-medium">Example</span>
+                      <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">-3 pts</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground break-words leading-relaxed italic">
+                      {hintsUsed.sentence && currentWord?.exampleSentence ? currentWord.exampleSentence : "See the word used in context"}
+                    </p>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Game Controls */}
           <div className="flex items-center justify-between">

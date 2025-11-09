@@ -128,6 +128,7 @@ export function useGameState() {
   const [isInRoom, setIsInRoom] = useState(false);
   const [connectedPlayers, setConnectedPlayers] = useState<PlayerState[]>([]);
   const [gameResults, setGameResults] = useState<any>(null);
+  const [roomSettings, setRoomSettings] = useState<any>(null);
   const [isUserReady, setIsUserReady] = useState(false);
 
   const { connectionState, lastMessage, sendMessage } = useWebSocket("/ws");
@@ -179,6 +180,7 @@ export function useGameState() {
       case 'room_created':
         setIsInRoom(true);
         setRoomCode(message.payload.room.code);
+        setRoomSettings(message.payload.room.settings || {});
         setGameResults(null);
         if (message.payload.players) {
           setConnectedPlayers(message.payload.players);
@@ -200,6 +202,7 @@ export function useGameState() {
       case 'room_joined':
         setIsInRoom(true);
         setRoomCode(message.payload.room.code);
+        setRoomSettings(message.payload.room.settings || {});
         setGameResults(null);
         if (message.payload.players) {
           setConnectedPlayers(message.payload.players);
@@ -259,6 +262,7 @@ export function useGameState() {
         break;
       case 'settings_updated':
         // Settings updated by host
+        setRoomSettings(message.payload.settings || {});
         break;
       case 'game_started':
         setGameState(message.payload.gameState);
@@ -524,6 +528,7 @@ export function useGameState() {
     isInRoom,
     connectedPlayers,
     gameResults,
+    roomSettings,
     connectionState,
     createRoom,
     joinRoom,

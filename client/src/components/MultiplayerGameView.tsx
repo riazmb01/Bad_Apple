@@ -8,6 +8,7 @@ interface MultiplayerGameViewProps {
   gameState: any;
   connectedPlayers: any[];
   currentUserId: string;
+  roomSettings: any;
   onSubmitAnswer: (answer: string) => void;
   onUseHint: (hintType: string) => void;
   onSkipWord: () => void;
@@ -18,6 +19,7 @@ export default function MultiplayerGameView({
   gameState,
   connectedPlayers,
   currentUserId,
+  roomSettings,
   onSubmitAnswer,
   onUseHint,
   onSkipWord,
@@ -125,6 +127,7 @@ export default function MultiplayerGameView({
           <SpellingBeeGame
             gameState={gameState}
             userId={currentUserId}
+            hintsEnabled={roomSettings?.hintsEnabled !== false}
             onSubmitAnswer={onSubmitAnswer}
             onUseHint={onUseHint}
             onSkipWord={onSkipWord}

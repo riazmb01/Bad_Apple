@@ -31,6 +31,7 @@ export default function Home() {
     isInRoom,
     connectedPlayers,
     gameResults,
+    roomSettings,
     connectionState,
     createRoom,
     joinRoom,
@@ -234,6 +235,7 @@ export default function Home() {
             gameState={gameState}
             connectedPlayers={connectedPlayers}
             currentUserId={dbUserId || currentUser.id}
+            roomSettings={roomSettings}
             onSubmitAnswer={submitAnswer}
             onUseHint={(hintType: string) => useHint(hintType as 'firstLetter' | 'definition' | 'sentence')}
             onSkipWord={handleSkipWord}
