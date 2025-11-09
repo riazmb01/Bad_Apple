@@ -15,6 +15,8 @@ export const users = pgTable("users", {
   gamesWon: integer("games_won").default(0),
   gamesPlayed: integer("games_played").default(0),
   bestStreak: integer("best_streak").default(0),
+  totalCorrect: integer("total_correct").default(0),
+  totalAttempts: integer("total_attempts").default(0),
   achievements: jsonb("achievements").default([]),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -40,6 +42,8 @@ export const gameSessions = pgTable("game_sessions", {
   score: integer("score").default(0),
   correctAnswers: integer("correct_answers").default(0),
   totalAnswers: integer("total_answers").default(0),
+  currentStreak: integer("current_streak").default(0),
+  bestStreak: integer("best_streak").default(0),
   hintsUsed: integer("hints_used").default(0),
   timeElapsed: integer("time_elapsed").default(0),
   isReady: boolean("is_ready").default(true),

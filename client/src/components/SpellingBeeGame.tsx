@@ -56,6 +56,8 @@ export default function SpellingBeeGame({
   const [correctCount, setCorrectCount] = useState(0);
   const [totalAttempts, setTotalAttempts] = useState(0);
   const [totalWordsAttempted, setTotalWordsAttempted] = useState(0);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [bestStreakThisGame, setBestStreakThisGame] = useState(0);
   const [feedback, setFeedback] = useState<{ show: boolean; isCorrect: boolean; message: string }>({
     show: false,
     isCorrect: false,
@@ -214,7 +216,8 @@ export default function SpellingBeeGame({
         userId,
         score,
         correctAnswers: correctCount,
-        totalAttempts
+        totalAttempts,
+        bestStreak: bestStreakThisGame
       })
         .then(() => {
           // Check for newly unlocked achievements
@@ -224,7 +227,7 @@ export default function SpellingBeeGame({
               score,
               accuracy,
               timeRemaining: timeLeft,
-              currentStreak: correctCount // Using correctCount as current streak for simplicity
+              currentStreak: bestStreakThisGame
             }
           });
         })
@@ -242,6 +245,8 @@ export default function SpellingBeeGame({
   const handleTimeOut = () => {
     // Game over - show results screen
     setGameOver(true);
+    // Reset streak on timeout
+    setCurrentStreak(0);
     // Reset timeout ref so next game can timeout properly
     timeoutRef.current = false;
   };
@@ -274,6 +279,13 @@ export default function SpellingBeeGame({
           if (hintsUsed.sentence) points -= 4;
           setScore(prev => prev + Math.max(points, 1));
           
+          // Update streak tracking
+          setCurrentStreak(prev => {
+            const newStreak = prev + 1;
+            setBestStreakThisGame(current => Math.max(current, newStreak));
+            return newStreak;
+          });
+          
           // Add 5 seconds to timer for correct answer (capped at 60 seconds max)
           setTimeLeft(prev => Math.min(60, prev + 5));
           
@@ -283,6 +295,9 @@ export default function SpellingBeeGame({
             message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +5 seconds`
           });
         } else {
+          // Reset streak on incorrect answer
+          setCurrentStreak(0);
+          
           // Subtract 3 seconds for incorrect answer
           setTimeLeft(prev => Math.max(0, prev - 3));
           
@@ -333,6 +348,8 @@ export default function SpellingBeeGame({
     
     if (!gameOver) {
       setTotalAttempts(prev => prev + 1);
+      // Reset streak on skip
+      setCurrentStreak(0);
       // Notify parent component that word was skipped
       onSkipWord();
       setCurrentWordIndex(prev => prev + 1);
@@ -352,6 +369,8 @@ export default function SpellingBeeGame({
     setUserInput('');
     setFeedback({ show: false, isCorrect: false, message: '' });
     setHintsUsed({ firstLetter: false, definition: false, sentence: false });
+    setCurrentStreak(0);
+    setBestStreakThisGame(0);
     timeoutRef.current = false;
     resultsSavedRef.current = false;
     // Refetch words

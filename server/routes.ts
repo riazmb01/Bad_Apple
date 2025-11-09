@@ -795,10 +795,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     
     if (userSession) {
+      // Update streak tracking
+      let newCurrentStreak = userSession.currentStreak || 0;
+      let newBestStreak = userSession.bestStreak || 0;
+      
+      if (isCorrect) {
+        newCurrentStreak += 1;
+        newBestStreak = Math.max(newBestStreak, newCurrentStreak);
+      } else {
+        newCurrentStreak = 0; // Reset streak on incorrect answer
+      }
+      
       const updates: Partial<GameSession> = {
         score: (userSession.score || 0) + points,
         correctAnswers: (userSession.correctAnswers || 0) + (isCorrect ? 1 : 0),
-        totalAnswers: (userSession.totalAnswers || 0) + 1
+        totalAnswers: (userSession.totalAnswers || 0) + 1,
+        currentStreak: newCurrentStreak,
+        bestStreak: newBestStreak
       };
 
       // In elimination mode, eliminate player if they get it wrong
@@ -914,7 +927,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (userSession) {
       const updates: Partial<GameSession> = {
         score: userSession.score || 0, // No points for skipping
-        totalAnswers: (userSession.totalAnswers || 0) + 1
+        totalAnswers: (userSession.totalAnswers || 0) + 1,
+        currentStreak: 0 // Reset streak on skip
       };
 
       await storage.updateGameSession(userSession.id, updates);
@@ -1122,18 +1136,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update user stats
       const user = await storage.getUser(session.userId);
       if (user) {
-        const accuracy = (session.totalAnswers || 0) > 0 
-          ? Math.round(((session.correctAnswers || 0) / (session.totalAnswers || 0)) * 100)
+        // Update cumulative correct answers and attempts
+        const newTotalCorrect = (user.totalCorrect || 0) + (session.correctAnswers || 0);
+        const newTotalAttempts = (user.totalAttempts || 0) + (session.totalAnswers || 0);
+
+        // Calculate overall accuracy from cumulative totals
+        const newAccuracy = newTotalAttempts > 0 
+          ? Math.round((newTotalCorrect / newTotalAttempts) * 100)
           : 0;
 
         const newPoints = (user.points || 0) + (session.score || 0);
         const newLevel = Math.floor(newPoints / 1000) + 1;
         
+        // Update best streak if session's best streak is higher
+        const newBestStreak = Math.max(user.bestStreak || 0, session.bestStreak || 0);
+        
         await storage.updateUser(user.id, {
           points: newPoints,
           level: newLevel,
           wordsSpelled: (user.wordsSpelled || 0) + (session.correctAnswers || 0),
-          accuracy: Math.round(((user.accuracy || 0) + accuracy) / 2)
+          totalCorrect: newTotalCorrect,
+          totalAttempts: newTotalAttempts,
+          accuracy: newAccuracy,
+          bestStreak: newBestStreak,
+          gamesPlayed: (user.gamesPlayed || 0) + 1,
         });
       }
     }
@@ -1501,7 +1527,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Save solo spelling bee game results
   app.post("/api/game-results", async (req, res) => {
     try {
-      const { userId, score, correctAnswers, totalAttempts } = req.body;
+      const { userId, score, correctAnswers, totalAttempts, bestStreak } = req.body;
       
       if (!userId || score === undefined || correctAnswers === undefined || totalAttempts === undefined) {
         return res.status(400).json({ message: "Missing required fields" });
@@ -1512,27 +1538,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      // Calculate accuracy for this game
-      const gameAccuracy = totalAttempts > 0 
-        ? Math.round((correctAnswers / totalAttempts) * 100)
-        : 0;
+      // Update cumulative correct answers and attempts
+      const newTotalCorrect = (user.totalCorrect || 0) + correctAnswers;
+      const newTotalAttempts = (user.totalAttempts || 0) + totalAttempts;
 
-      // Update user's overall accuracy (average with existing)
-      const newAccuracy = user.accuracy 
-        ? Math.round((user.accuracy + gameAccuracy) / 2)
-        : gameAccuracy;
+      // Calculate overall accuracy from cumulative totals
+      const newAccuracy = newTotalAttempts > 0 
+        ? Math.round((newTotalCorrect / newTotalAttempts) * 100)
+        : 0;
 
       // Calculate new level based on points (1000 points per level)
       const newPoints = (user.points || 0) + score;
       const newLevel = Math.floor(newPoints / 1000) + 1;
+
+      // Update best streak if game's best streak is higher
+      const newBestStreak = Math.max(user.bestStreak || 0, bestStreak || 0);
 
       // Update user stats
       const updatedUser = await storage.updateUser(userId, {
         points: newPoints,
         level: newLevel,
         wordsSpelled: (user.wordsSpelled || 0) + correctAnswers,
+        totalCorrect: newTotalCorrect,
+        totalAttempts: newTotalAttempts,
         accuracy: newAccuracy,
-        gamesWon: (user.gamesWon || 0) + 1, // Count each completed game as a "win"
+        bestStreak: newBestStreak,
+        gamesWon: (user.gamesWon || 0) + 1, // Count each completed game
         gamesPlayed: (user.gamesPlayed || 0) + 1, // Increment games played
       });
 
