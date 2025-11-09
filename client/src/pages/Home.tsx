@@ -39,6 +39,7 @@ export default function Home() {
     startGame,
     submitAnswer,
     useHint,
+    skipWord,
     markPlayerReady,
     updateSettings,
     isUserReady
@@ -79,8 +80,13 @@ export default function Home() {
   };
 
   const handleSkipWord = () => {
-    console.log('Skip word');
-    // Implement skip logic
+    if (isInRoom && gameState?.isActive) {
+      // In multiplayer mode, send skip message to server
+      skipWord();
+    } else {
+      // Single player mode - not implemented
+      console.log('Skip word');
+    }
   };
 
   const handlePauseGame = () => {

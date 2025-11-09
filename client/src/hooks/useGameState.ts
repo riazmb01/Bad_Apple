@@ -525,6 +525,13 @@ export function useGameState() {
     });
   };
 
+  const skipWord = () => {
+    sendMessage({
+      type: 'skip_word',
+      payload: {}
+    });
+  };
+
   return {
     gameState,
     playerState,
@@ -542,6 +549,7 @@ export function useGameState() {
     startGame,
     submitAnswer,
     useHint,
+    skipWord,
     markPlayerReady,
     updateSettings,
     isUserReady
