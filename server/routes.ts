@@ -545,13 +545,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const competitionType = settings.competitionType || 'elimination';
       const timePerWord = parseInt(settings.timeLimit) || 45;
       
-      // For timed challenge: 3 minutes total game time
-      const isTimedChallenge = competitionType === 'timed';
+      // All multiplayer games have a 3-minute total time limit
       const globalTimerDuration = 180; // 3 minutes in seconds
+      const isTimedChallenge = competitionType === 'timed';
       
       const gameState: GameState = {
         currentRound: 1,
-        totalRounds: isTimedChallenge ? 999 : 10, // Unlimited rounds for timed mode
+        totalRounds: isTimedChallenge ? 999 : 10, // 10 rounds for most modes, unlimited for timed
         timeLeft: timePerWord,
         isActive: true,
         players: [],
@@ -559,10 +559,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         difficulty: room.difficulty as any,
         competitionType: competitionType,
         currentWord: await getRandomWord(room.difficulty as any),
-        ...(isTimedChallenge && {
-          globalTimer: globalTimerDuration,
-          timerStartedAt: Date.now()
-        })
+        globalTimer: globalTimerDuration,
+        timerStartedAt: Date.now()
       };
 
       await storage.updateGameRoom(room.id, {
@@ -570,10 +568,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gameState: gameState
       });
 
-      // Start global timer for timed challenge
-      if (isTimedChallenge) {
-        startTimedChallengeTimer(room.id, globalTimerDuration);
-      }
+      // Start global 3-minute timer for all multiplayer games
+      startTimedChallengeTimer(room.id, globalTimerDuration);
 
       broadcastToRoom(room.id, {
         type: 'game_started',
@@ -888,20 +884,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!room || !room.gameState) return;
 
     const gameState = room.gameState as GameState;
-    const isTimedChallenge = gameState.competitionType === 'timed';
     
-    // For timed challenge, check if timer expired (game will end via timer)
-    if (isTimedChallenge) {
-      if (gameState.globalTimer && gameState.globalTimer <= 0) {
-        await endGame(roomId);
-        return;
-      }
-    } else {
-      // For other modes, check round limit
-      if (gameState.currentRound >= gameState.totalRounds) {
-        await endGame(roomId);
-        return;
-      }
+    // Check if global timer expired (all multiplayer games have 3-minute limit)
+    if (gameState.globalTimer && gameState.globalTimer <= 0) {
+      await endGame(roomId);
+      return;
+    }
+    
+    // Check if round limit reached (except for timed challenges which are unlimited)
+    const isTimedChallenge = gameState.competitionType === 'timed';
+    if (!isTimedChallenge && gameState.currentRound >= gameState.totalRounds) {
+      await endGame(roomId);
+      return;
     }
 
     try {
@@ -912,10 +906,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const settings = room.settings as any || {};
       const timePerWord = parseInt(settings.timeLimit) || 45;
       
-      // Next round (or next word in timed mode)
-      if (!isTimedChallenge) {
-        gameState.currentRound++;
-      }
+      // Increment round counter
+      gameState.currentRound++;
       gameState.currentWord = await getRandomWord(gameState.difficulty);
       gameState.timeLeft = timePerWord;
 
@@ -944,6 +936,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Clean up hint tracking for this room
     resetRoomHints(roomId);
+    
+    // Clear the global timer if it exists
+    if (activeTimers.has(roomId)) {
+      clearInterval(activeTimers.get(roomId)!);
+      activeTimers.delete(roomId);
+    }
 
     const sessions = await storage.getGameSessionsByRoom(roomId);
     
