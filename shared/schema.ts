@@ -19,6 +19,7 @@ export const users = pgTable("users", {
   totalAttempts: integer("total_attempts").default(0),
   achievements: jsonb("achievements").default([]),
   createdAt: timestamp("created_at").defaultNow(),
+  lastAccessed: timestamp("last_accessed").defaultNow(),
 });
 
 export const gameRooms = pgTable("game_rooms", {
@@ -76,6 +77,7 @@ export const userAchievements = pgTable("user_achievements", {
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+  lastAccessed: true,
 });
 
 export const insertGameRoomSchema = createInsertSchema(gameRooms).omit({
