@@ -227,6 +227,8 @@ export default function Home() {
             connectedPlayers={connectedPlayers}
             isHost={isHost}
             gameMode={roomSettings?.gameMode}
+            dbUserId={dbUserId}
+            currentUsername={currentUser.username}
             onStartGame={startGame}
             onLeaveRoom={handleBackToMenu}
             onUpdateSettings={updateSettings}
