@@ -223,6 +223,7 @@ export default function Home() {
             roomCode={roomCode}
             connectedPlayers={connectedPlayers}
             isHost={isHost}
+            gameMode={roomSettings?.gameMode}
             onStartGame={startGame}
             onLeaveRoom={handleBackToMenu}
             onUpdateSettings={updateSettings}

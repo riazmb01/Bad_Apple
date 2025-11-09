@@ -12,6 +12,7 @@ interface MultiplayerLobbyProps {
   roomCode: string;
   connectedPlayers: any[];
   isHost: boolean;
+  gameMode?: string;
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onUpdateSettings?: (settings: any) => void;
@@ -21,6 +22,7 @@ export default function MultiplayerLobby({
   roomCode, 
   connectedPlayers, 
   isHost, 
+  gameMode,
   onStartGame, 
   onLeaveRoom,
   onUpdateSettings
@@ -192,19 +194,21 @@ export default function MultiplayerLobby({
                   </Select>
                 </div>
 
-                {/* Hints Enabled */}
-                <div className="flex items-center space-x-3">
-                  <Checkbox 
-                    id="hintsEnabled" 
-                    checked={gameSettings.hintsEnabled}
-                    onCheckedChange={(checked) => updateSetting('hintsEnabled', !!checked)}
-                    disabled={!isHost}
-                    data-testid="checkbox-hints-enabled"
-                  />
-                  <Label htmlFor="hintsEnabled" className="text-sm font-medium text-foreground">
-                    Enable Hints {!isHost && "(Host only)"}
-                  </Label>
-                </div>
+                {/* Hints Enabled - Only show for spelling games */}
+                {gameMode === 'spelling' && (
+                  <div className="flex items-center space-x-3">
+                    <Checkbox 
+                      id="hintsEnabled" 
+                      checked={gameSettings.hintsEnabled}
+                      onCheckedChange={(checked) => updateSetting('hintsEnabled', !!checked)}
+                      disabled={!isHost}
+                      data-testid="checkbox-hints-enabled"
+                    />
+                    <Label htmlFor="hintsEnabled" className="text-sm font-medium text-foreground">
+                      Enable Hints {!isHost && "(Host only)"}
+                    </Label>
+                  </div>
+                )}
               </div>
 
               {/* Room Code */}

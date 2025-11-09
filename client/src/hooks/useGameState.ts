@@ -180,7 +180,10 @@ export function useGameState() {
       case 'room_created':
         setIsInRoom(true);
         setRoomCode(message.payload.room.code);
-        setRoomSettings(message.payload.room.settings || {});
+        setRoomSettings({
+          ...message.payload.room.settings,
+          gameMode: message.payload.room.gameMode
+        });
         setGameResults(null);
         if (message.payload.players) {
           setConnectedPlayers(message.payload.players);
@@ -202,7 +205,10 @@ export function useGameState() {
       case 'room_joined':
         setIsInRoom(true);
         setRoomCode(message.payload.room.code);
-        setRoomSettings(message.payload.room.settings || {});
+        setRoomSettings({
+          ...message.payload.room.settings,
+          gameMode: message.payload.room.gameMode
+        });
         setGameResults(null);
         if (message.payload.players) {
           setConnectedPlayers(message.payload.players);
