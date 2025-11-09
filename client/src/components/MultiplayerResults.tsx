@@ -1,6 +1,7 @@
-import { Trophy, Medal, Award, Home } from "lucide-react";
+import { Trophy, Medal, Award, Home, Play, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
 
 interface Player {
   userId: string;
@@ -9,22 +10,37 @@ interface Player {
   score: number;
   correctAnswers?: number;
   totalAnswers?: number;
+  isReady?: boolean;
 }
 
 interface MultiplayerResultsProps {
   players: Player[];
   currentUserId: string;
   onBackToMenu: () => void;
+  onReadyUp?: () => void;
+  onRestartGame?: () => void;
+  isHost?: boolean;
 }
 
 export default function MultiplayerResults({ 
   players, 
   currentUserId, 
-  onBackToMenu 
+  onBackToMenu,
+  onReadyUp,
+  onRestartGame,
+  isHost = false
 }: MultiplayerResultsProps) {
   const sortedPlayers = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
   const winner = sortedPlayers[0];
   const currentPlayer = sortedPlayers.find(p => p.userId === currentUserId);
+  const [hasReadied, setHasReadied] = useState(false);
+
+  const handleReadyUp = () => {
+    if (onReadyUp) {
+      onReadyUp();
+      setHasReadied(true);
+    }
+  };
 
   return (
     <section className="mb-12">
@@ -99,9 +115,31 @@ export default function MultiplayerResults({
                     </div>
                   </div>
 
-                  {/* Score */}
-                  <div className="text-2xl font-bold text-foreground">
-                    {player.score || 0} pts
+                  {/* Score and Ready Status */}
+                  <div className="flex items-center space-x-4">
+                    <div className="text-2xl font-bold text-foreground">
+                      {player.score || 0} pts
+                    </div>
+                    {/* Ready Status Indicator */}
+                    {player.isReady !== undefined && (
+                      <div className={`flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium ${
+                        player.isReady 
+                          ? 'bg-green-500/20 text-green-600' 
+                          : 'bg-red-500/20 text-red-600'
+                      }`} data-testid={`ready-status-${player.userId}`}>
+                        {player.isReady ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Ready</span>
+                          </>
+                        ) : (
+                          <>
+                            <X className="w-4 h-4" />
+                            <span>Not Ready</span>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -135,14 +173,50 @@ export default function MultiplayerResults({
 
           {/* Action Buttons */}
           <div className="flex justify-center space-x-4">
-            <Button 
-              onClick={onBackToMenu}
-              size="lg"
-              data-testid="button-back-to-menu"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              Back to Menu
-            </Button>
+            {isHost ? (
+              <>
+                <Button 
+                  onClick={onRestartGame}
+                  size="lg"
+                  variant="default"
+                  data-testid="button-restart-game"
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Start New Game
+                </Button>
+                <Button 
+                  onClick={onBackToMenu}
+                  size="lg"
+                  variant="outline"
+                  data-testid="button-back-to-menu"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Back to Menu
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  onClick={handleReadyUp}
+                  size="lg"
+                  variant="default"
+                  disabled={hasReadied || currentPlayer?.isReady}
+                  data-testid="button-ready-up"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  {hasReadied || currentPlayer?.isReady ? "Ready!" : "Ready Up"}
+                </Button>
+                <Button 
+                  onClick={onBackToMenu}
+                  size="lg"
+                  variant="outline"
+                  data-testid="button-back-to-menu"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Back to Menu
+                </Button>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

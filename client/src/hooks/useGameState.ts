@@ -362,11 +362,30 @@ export function useGameState() {
         );
         break;
       case 'timer_update':
-        // Update global timer for timed challenge mode
+        // Update global timer for all multiplayer games
         setGameState(prev => prev ? {
           ...prev,
           globalTimer: message.payload.timeRemaining
         } : null);
+        break;
+      case 'player_ready_updated':
+        // Update players list with ready status
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        }
+        break;
+      case 'game_restarted':
+        // Game restarted, return to lobby
+        setGameState(null);
+        setGameResults(null);
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        }
+        toast({
+          title: "New Game Starting!",
+          description: "The host has started a new game. Get ready!",
+          variant: "default"
+        });
         break;
       case 'error':
         console.error('Game error:', message.payload.message);
@@ -532,6 +551,20 @@ export function useGameState() {
     });
   };
 
+  const readyUpForNextGame = () => {
+    sendMessage({
+      type: 'ready_for_next_game',
+      payload: {}
+    });
+  };
+
+  const restartGame = () => {
+    sendMessage({
+      type: 'restart_game',
+      payload: {}
+    });
+  };
+
   return {
     gameState,
     playerState,
@@ -552,6 +585,8 @@ export function useGameState() {
     skipWord,
     markPlayerReady,
     updateSettings,
+    readyUpForNextGame,
+    restartGame,
     isUserReady
   };
 }
