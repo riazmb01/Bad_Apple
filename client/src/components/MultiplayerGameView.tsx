@@ -35,8 +35,8 @@ export default function MultiplayerGameView({
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       {/* Live Leaderboard */}
       <div className="lg:col-span-1 order-2 lg:order-1 space-y-4">
-        {/* Countdown Timer for Timed Challenge */}
-        {isTimedChallenge && gameState.globalTimer !== undefined && (
+        {/* Universal 3-Minute Timer for ALL Multiplayer Games */}
+        {gameState.globalTimer !== undefined && (
           <CountdownTimer timeRemaining={gameState.globalTimer} />
         )}
         
@@ -93,13 +93,11 @@ export default function MultiplayerGameView({
               ))}
             </div>
 
-            {!isTimedChallenge && (
-              <div className="mt-4 pt-4 border-t border-border">
-                <div className="text-sm text-muted-foreground">
-                  Round {gameState.currentRound || 1} of {gameState.totalRounds || 10}
-                </div>
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="text-sm text-muted-foreground">
+                Round {gameState.currentRound || 1}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       </div>

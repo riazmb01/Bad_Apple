@@ -547,11 +547,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // All multiplayer games have a 3-minute total time limit
       const globalTimerDuration = 180; // 3 minutes in seconds
-      const isTimedChallenge = competitionType === 'timed';
       
       const gameState: GameState = {
         currentRound: 1,
-        totalRounds: isTimedChallenge ? 999 : 10, // 10 rounds for most modes, unlimited for timed
+        totalRounds: 999, // Unlimited rounds - game ends on timer expiry or elimination only
         timeLeft: timePerWord,
         isActive: true,
         players: [],
@@ -887,13 +886,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // Check if global timer expired (all multiplayer games have 3-minute limit)
     if (gameState.globalTimer && gameState.globalTimer <= 0) {
-      await endGame(roomId);
-      return;
-    }
-    
-    // Check if round limit reached (except for timed challenges which are unlimited)
-    const isTimedChallenge = gameState.competitionType === 'timed';
-    if (!isTimedChallenge && gameState.currentRound >= gameState.totalRounds) {
       await endGame(roomId);
       return;
     }
