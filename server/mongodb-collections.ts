@@ -54,16 +54,35 @@ export async function initializeCollections() {
   try {
     // Create indexes for better query performance
     const usersCol = await getUsersCollection();
-    await usersCol.createIndex({ username: 1 }, { unique: true });
+    try {
+      await usersCol.createIndex({ username: 1 }, { unique: true });
+    } catch (e: any) {
+      // Index might already exist or have duplicate values - that's okay
+      if (e.code !== 11000 && e.code !== 85 && e.code !== 86) {
+        console.warn('Could not create username index:', e.message);
+      }
+    }
     
     const gameRoomsCol = await getGameRoomsCollection();
-    await gameRoomsCol.createIndex({ code: 1 }, { unique: true });
+    try {
+      await gameRoomsCol.createIndex({ code: 1 }, { unique: true });
+    } catch (e: any) {
+      if (e.code !== 11000 && e.code !== 85 && e.code !== 86) {
+        console.warn('Could not create room code index:', e.message);
+      }
+    }
     
     const userAchievementsCol = await getUserAchievementsCollection();
-    await userAchievementsCol.createIndex(
-      { userId: 1, achievementId: 1 }, 
-      { unique: true }
-    );
+    try {
+      await userAchievementsCol.createIndex(
+        { userId: 1, achievementId: 1 }, 
+        { unique: true }
+      );
+    } catch (e: any) {
+      if (e.code !== 11000 && e.code !== 85 && e.code !== 86) {
+        console.warn('Could not create user achievements index:', e.message);
+      }
+    }
     
     console.log('MongoDB collections initialized with indexes');
   } catch (error) {

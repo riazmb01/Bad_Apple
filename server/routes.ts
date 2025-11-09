@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
-import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession, ACHIEVEMENT_DEFINITIONS, type AchievementWithStatus } from "@shared/schema";
+import { storage } from "./mongodb-storage";
+import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession, ACHIEVEMENT_DEFINITIONS, type AchievementWithStatus } from "@shared/mongodb-schema";
 import { getWordsCollection, getGrammarCollection } from "./mongodb";
 
 interface WebSocketClient extends WebSocket {
