@@ -1,4 +1,4 @@
-import { Trophy, TrendingUp } from "lucide-react";
+import { Trophy, TrendingUp, Bug } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { AchievementWithStatus } from "@shared/schema";
 
@@ -33,10 +33,10 @@ export default function AppHeader({ user, dbUserId }: AppHeaderProps) {
           {/* Logo and Title */}
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <i className="fas fa-spell-check text-primary-foreground text-xl"></i>
+              <Bug className="text-primary-foreground w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground" data-testid="app-title">SpellMaster Pro</h1>
+              <h1 className="text-xl font-bold text-foreground" data-testid="app-title">Bad Apple</h1>
               <p className="text-xs text-muted-foreground">Educational Gaming Platform</p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 # Overview
 
-SpellMaster Pro is an educational gaming platform focused on language learning through interactive spelling and grammar games. The application supports multiple game modes including single-player spelling bees, grammar challenges, and real-time multiplayer competitions. Built as a full-stack web application, it features user progress tracking, leaderboards, achievements, and live multiplayer functionality with WebSocket communication.
+Bad Apple is an educational gaming platform focused on language learning through interactive spelling and grammar games. The application supports multiple game modes including single-player spelling bees, grammar challenges, and real-time multiplayer competitions. Built as a full-stack web application, it features user progress tracking, leaderboards, achievements, and live multiplayer functionality with WebSocket communication.
 
 # User Preferences
 
