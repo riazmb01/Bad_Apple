@@ -42,8 +42,6 @@ export default function Home() {
     skipWord,
     markPlayerReady,
     updateSettings,
-    readyUpForNextGame,
-    restartGame,
     isUserReady
   } = useGameState();
 
@@ -255,23 +253,16 @@ export default function Home() {
         {/* Multiplayer Results */}
         {currentMode === 'multiplayer' && gameResults && (
           <MultiplayerResults
-            players={gameResults.map((session: any) => {
-              const player = connectedPlayers.find((p: any) => p.userId === session.userId);
-              return {
-                userId: session.userId,
-                username: player?.username || 'Player',
-                avatar: player?.avatar,
-                score: session.score || 0,
-                correctAnswers: session.correctAnswers || 0,
-                totalAnswers: session.totalAnswers || 0,
-                isReady: player?.isReady || false
-              };
-            })}
+            players={gameResults.map((session: any) => ({
+              userId: session.userId,
+              username: connectedPlayers.find((p: any) => p.userId === session.userId)?.username || 'Player',
+              avatar: connectedPlayers.find((p: any) => p.userId === session.userId)?.avatar,
+              score: session.score || 0,
+              correctAnswers: session.correctAnswers || 0,
+              totalAnswers: session.totalAnswers || 0
+            }))}
             currentUserId={dbUserId || currentUser.id}
             onBackToMenu={handleBackToMenu}
-            onReadyUp={readyUpForNextGame}
-            onRestartGame={restartGame}
-            isHost={isHost}
           />
         )}
 

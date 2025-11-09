@@ -96,8 +96,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     currentWordHints.delete(roomId);
   }
 
-  // Start a universal countdown timer for all multiplayer games (3 minutes)
-  function startGlobalTimer(roomId: string, duration: number) {
+  // Start a countdown timer for timed challenge mode
+  function startTimedChallengeTimer(roomId: string, duration: number) {
     // Clear any existing timer for this room
     if (activeTimers.has(roomId)) {
       clearInterval(activeTimers.get(roomId)!);
@@ -198,12 +198,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         break;
       case 'player_ready':
         await handlePlayerReady(ws, message.payload);
-        break;
-      case 'ready_for_next_game':
-        await handleReadyForNextGame(ws, message.payload);
-        break;
-      case 'restart_game':
-        await handleRestartGame(ws, message.payload);
         break;
       case 'update_settings':
         await handleUpdateSettings(ws, message.payload);
@@ -551,9 +545,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const competitionType = settings.competitionType || 'elimination';
       const timePerWord = parseInt(settings.timeLimit) || 45;
       
-      // Universal 3-minute timer for ALL multiplayer games
-      const globalTimerDuration = 180; // 3 minutes in seconds
+      // For timed challenge: 3 minutes total game time
       const isTimedChallenge = competitionType === 'timed';
+      const globalTimerDuration = 180; // 3 minutes in seconds
       
       const gameState: GameState = {
         currentRound: 1,
@@ -565,8 +559,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         difficulty: room.difficulty as any,
         competitionType: competitionType,
         currentWord: await getRandomWord(room.difficulty as any),
-        globalTimer: globalTimerDuration,
-        timerStartedAt: Date.now()
+        ...(isTimedChallenge && {
+          globalTimer: globalTimerDuration,
+          timerStartedAt: Date.now()
+        })
       };
 
       await storage.updateGameRoom(room.id, {
@@ -574,8 +570,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         gameState: gameState
       });
 
-      // Start universal 3-minute timer for ALL multiplayer games
-      startGlobalTimer(room.id, globalTimerDuration);
+      // Start global timer for timed challenge
+      if (isTimedChallenge) {
+        startTimedChallengeTimer(room.id, globalTimerDuration);
+      }
 
       broadcastToRoom(room.id, {
         type: 'game_started',
@@ -885,86 +883,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  async function handleReadyForNextGame(ws: WebSocketClient, payload: any) {
-    if (!ws.roomId || !ws.userId) return;
-
-    const room = await storage.getGameRoom(ws.roomId);
-    if (!room) return;
-
-    // Update player's ready status
-    const sessions = await storage.getGameSessionsByRoom(room.id);
-    const userSession = sessions.find(s => s.userId === ws.userId);
-    
-    if (userSession) {
-      await storage.updateGameSession(userSession.id, {
-        isReady: true
-      });
-
-      // Get updated player list with ready status
-      const updatedSessions = await storage.getGameSessionsByRoom(room.id);
-      const players = await getPlayerList(updatedSessions);
-
-      // Broadcast updated player ready status to all players in the room
-      broadcastToRoom(room.id, {
-        type: 'player_ready_updated',
-        payload: {
-          userId: ws.userId,
-          username: ws.username,
-          isReady: true,
-          players
-        }
-      });
-    }
-  }
-
-  async function handleRestartGame(ws: WebSocketClient, payload: any) {
-    if (!ws.roomId) return;
-
-    const room = await storage.getGameRoom(ws.roomId);
-    if (!room || room.hostId !== ws.userId) {
-      ws.send(JSON.stringify({
-        type: 'error',
-        payload: { message: 'Only the host can restart the game' }
-      }));
-      return;
-    }
-
-    // Reset all game sessions for a new game
-    const sessions = await storage.getGameSessionsByRoom(room.id);
-    for (const session of sessions) {
-      await storage.updateGameSession(session.id, {
-        score: 0,
-        correctAnswers: 0,
-        totalAnswers: 0,
-        hintsUsed: 0,
-        timeElapsed: 0,
-        isReady: false,
-        isComplete: false,
-        isEliminated: false,
-        eliminatedAt: null
-      });
-    }
-
-    // Reset room to inactive lobby state
-    await storage.updateGameRoom(room.id, {
-      isActive: false,
-      gameState: {} // Clear game state
-    });
-
-    // Reset hint tracking
-    resetRoomHints(room.id);
-
-    // Get updated player list
-    const updatedSessions = await storage.getGameSessionsByRoom(room.id);
-    const players = await getPlayerList(updatedSessions);
-
-    // Broadcast game restart to all players - returns them to lobby
-    broadcastToRoom(room.id, {
-      type: 'game_restarted',
-      payload: { players }
-    });
-  }
-
   async function nextRound(roomId: string) {
     const room = await storage.getGameRoom(roomId);
     if (!room || !room.gameState) return;
@@ -1027,19 +945,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Clean up hint tracking for this room
     resetRoomHints(roomId);
 
-    // Stop global timer if running
-    if (activeTimers.has(roomId)) {
-      clearInterval(activeTimers.get(roomId)!);
-      activeTimers.delete(roomId);
-    }
-
     const sessions = await storage.getGameSessionsByRoom(roomId);
     
-    // Mark sessions as complete and reset ready status for next game
+    // Mark sessions as complete
     for (const session of sessions) {
       await storage.updateGameSession(session.id, {
-        isComplete: true,
-        isReady: false // Reset ready status so players can ready up again
+        isComplete: true
       });
 
       // Update user stats
@@ -1061,12 +972,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       isActive: false
     });
 
-    // Get updated player list with ready status
-    const players = await getPlayerList(sessions);
-
     broadcastToRoom(roomId, {
       type: 'game_ended',
-      payload: { sessions, players }
+      payload: { sessions }
     });
   }
 
