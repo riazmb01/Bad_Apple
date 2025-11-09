@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { GameState, PlayerState, Word, Achievement, User } from "@shared/schema";
 import { useWebSocket } from "./useWebSocket";
 import { useToast } from "@/hooks/use-toast";
@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export function useGameState() {
   const { toast } = useToast();
+  const isAutoRejoinAttempt = useRef(false);
   
   // Generate or retrieve unique player ID from localStorage
   const getOrCreatePlayerId = () => {
@@ -156,6 +157,8 @@ export function useGameState() {
       if (storedRoom) {
         try {
           const roomData = JSON.parse(storedRoom);
+          // Set flag to indicate this is an auto-rejoin attempt
+          isAutoRejoinAttempt.current = true;
           // Auto-rejoin the room
           sendMessage({
             type: 'join_room',
@@ -168,11 +171,8 @@ export function useGameState() {
         } catch (error) {
           console.error('Error parsing stored room data:', error);
           localStorage.removeItem('currentRoom');
-          toast({
-            title: "Reconnection Failed",
-            description: "Stored room data was invalid. Please rejoin manually.",
-            variant: "destructive"
-          });
+          isAutoRejoinAttempt.current = false;
+          // Don't show toast for auto-rejoin failures
         }
       }
     }
@@ -224,11 +224,16 @@ export function useGameState() {
             username: currentUser.username
           }));
         }
-        toast({
-          title: "Joined Room!",
-          description: `You're in room ${message.payload.room.code}`,
-          variant: "default"
-        });
+        // Only show toast for manual joins, not auto-rejoins
+        if (!isAutoRejoinAttempt.current) {
+          toast({
+            title: "Joined Room!",
+            description: `You're in room ${message.payload.room.code}`,
+            variant: "default"
+          });
+        }
+        // Reset the flag
+        isAutoRejoinAttempt.current = false;
         break;
       case 'player_joined':
         if (message.payload.players) {
@@ -391,7 +396,15 @@ export function useGameState() {
       case 'error':
         console.error('Game error:', message.payload.message);
         
-        // Provide user-friendly error messages
+        // Don't show toast for auto-rejoin errors (room might have expired)
+        if (isAutoRejoinAttempt.current) {
+          // Clear stored room if auto-rejoin fails
+          localStorage.removeItem('currentRoom');
+          isAutoRejoinAttempt.current = false;
+          break;
+        }
+        
+        // Provide user-friendly error messages for manual actions
         let errorTitle = "Error";
         let errorDescription = message.payload.message;
         
