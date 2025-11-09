@@ -42,6 +42,7 @@ export default function Home() {
     skipWord,
     markPlayerReady,
     updateSettings,
+    restartGame,
     isUserReady
   } = useGameState();
 
@@ -263,6 +264,8 @@ export default function Home() {
             }))}
             currentUserId={dbUserId || currentUser.id}
             onBackToMenu={handleBackToMenu}
+            onPlayAgain={restartGame}
+            roomCode={roomCode}
           />
         )}
 

@@ -63,8 +63,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setInterval(cleanupOldRooms, CLEANUP_INTERVAL);
   console.log('Room cleanup job started (runs every 5 minutes)');
 
-  // Track active timers for timed challenge rooms
+  // Track active timers for global game timer (3-minute countdown)
   const activeTimers = new Map<string, NodeJS.Timeout>();
+  
+  // Track per-word timers for each room
+  const perWordTimers = new Map<string, NodeJS.Timeout>();
+  
+  // Track which players have answered the current word: Map<roomId, Set<userId>>
+  const playersWhoAnswered = new Map<string, Set<string>>();
 
   // Track hints used per word per player: Map<roomId, Map<userId, HintUsage>>
   interface HintUsage {
@@ -95,8 +101,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   function resetRoomHints(roomId: string) {
     currentWordHints.delete(roomId);
   }
+  
+  // Helper to reset answered tracking when moving to next word
+  function resetAnsweredTracking(roomId: string) {
+    playersWhoAnswered.delete(roomId);
+  }
+  
+  // Helper to mark a player as having answered the current word
+  function markPlayerAnswered(roomId: string, userId: string) {
+    if (!playersWhoAnswered.has(roomId)) {
+      playersWhoAnswered.set(roomId, new Set());
+    }
+    playersWhoAnswered.get(roomId)!.add(userId);
+  }
+  
+  // Helper to check if a player has answered the current word
+  function hasPlayerAnswered(roomId: string, userId: string): boolean {
+    return playersWhoAnswered.get(roomId)?.has(userId) || false;
+  }
 
-  // Start a countdown timer for timed challenge mode
+  // Start a countdown timer for global 3-minute game timer
   function startTimedChallengeTimer(roomId: string, duration: number) {
     // Clear any existing timer for this room
     if (activeTimers.has(roomId)) {
@@ -138,6 +162,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }, 1000); // Update every second
 
     activeTimers.set(roomId, timerInterval);
+  }
+  
+  // Start per-word timer that counts down for each question
+  function startPerWordTimer(roomId: string) {
+    // Clear any existing per-word timer for this room
+    if (perWordTimers.has(roomId)) {
+      clearInterval(perWordTimers.get(roomId)!);
+    }
+    
+    const timerInterval = setInterval(async () => {
+      const room = await storage.getGameRoom(roomId);
+      if (!room || !room.gameState) {
+        clearInterval(timerInterval);
+        perWordTimers.delete(roomId);
+        return;
+      }
+
+      const gameState = room.gameState as GameState;
+      gameState.timeLeft = (gameState.timeLeft || 0) - 1;
+
+      await storage.updateGameRoom(roomId, {
+        gameState: gameState
+      });
+
+      // Broadcast per-word timer update
+      broadcastToRoom(roomId, {
+        type: 'word_timer_update',
+        payload: { timeLeft: gameState.timeLeft }
+      });
+
+      // When per-word timer reaches 0
+      if (gameState.timeLeft <= 0) {
+        clearInterval(timerInterval);
+        perWordTimers.delete(roomId);
+        
+        const isEliminationMode = gameState.competitionType === 'elimination';
+        
+        if (isEliminationMode) {
+          // In elimination mode, eliminate only players who haven't answered yet
+          const sessions = await storage.getGameSessionsByRoom(roomId);
+          for (const session of sessions) {
+            // Only eliminate if player hasn't answered AND is not already eliminated
+            if (!session.isEliminated && !hasPlayerAnswered(roomId, session.userId)) {
+              // Mark player as eliminated
+              await storage.updateGameSession(session.id, {
+                isEliminated: true
+              });
+              
+              // Broadcast elimination
+              broadcastToRoom(roomId, {
+                type: 'player_eliminated',
+                payload: {
+                  userId: session.userId,
+                  reason: 'Time ran out'
+                }
+              });
+            }
+          }
+          
+          // Check if only one player remains
+          const updatedSessions = await storage.getGameSessionsByRoom(roomId);
+          const activePlayers = updatedSessions.filter(s => !s.isEliminated);
+          if (activePlayers.length <= 1) {
+            await endGame(roomId);
+            return;
+          }
+        }
+        
+        // Move to next round after a brief delay
+        setTimeout(() => {
+          nextRound(roomId);
+        }, 2000);
+      }
+    }, 1000); // Update every second
+
+    perWordTimers.set(roomId, timerInterval);
   }
 
   // WebSocket connection handling
@@ -183,6 +283,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         break;
       case 'leave_room':
         await handleLeaveRoom(ws, message.payload);
+        break;
+      case 'restart_game':
+        await handleRestartGame(ws, message.payload);
         break;
       case 'start_game':
         await handleStartGame(ws, message.payload);
@@ -448,6 +551,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  async function handleRestartGame(ws: WebSocketClient, payload: any) {
+    if (!ws.roomId) return;
+
+    const room = await storage.getGameRoom(ws.roomId);
+    if (!room) return;
+
+    // Reset room to inactive state
+    await storage.updateGameRoom(room.id, {
+      isActive: false,
+      gameState: null
+    });
+
+    // Delete all game sessions
+    const sessions = await storage.getGameSessionsByRoom(room.id);
+    for (const session of sessions) {
+      await storage.deleteGameSession(session.id);
+    }
+
+    // Clean up timers and tracking
+    resetRoomHints(room.id);
+    resetAnsweredTracking(room.id);
+    if (activeTimers.has(room.id)) {
+      clearInterval(activeTimers.get(room.id)!);
+      activeTimers.delete(room.id);
+    }
+    if (perWordTimers.has(room.id)) {
+      clearInterval(perWordTimers.get(room.id)!);
+      perWordTimers.delete(room.id);
+    }
+
+    // Broadcast restart to all players
+    broadcastToRoom(room.id, {
+      type: 'game_restarted',
+      payload: { roomCode: room.code }
+    });
+  }
+
   async function handlePlayerLeave(roomId: string, userId: string) {
     const room = await storage.getGameRoom(roomId);
     if (!room) return;
@@ -569,6 +709,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Start global 3-minute timer for all multiplayer games
       startTimedChallengeTimer(room.id, globalTimerDuration);
+      
+      // Start per-word timer
+      startPerWordTimer(room.id);
 
       broadcastToRoom(room.id, {
         type: 'game_started',
@@ -615,6 +758,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       return;
     }
+    
+    // Mark player as having answered this word
+    markPlayerAnswered(room.id, ws.userId);
 
     const isCorrect = answer.toLowerCase() === currentWord.word.toLowerCase();
     
@@ -722,6 +868,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Move to next round if needed
     if (isCorrect || gameState.timeLeft <= 0) {
+      // Stop the per-word timer immediately to prevent race condition
+      if (perWordTimers.has(room.id)) {
+        clearInterval(perWordTimers.get(room.id)!);
+        perWordTimers.delete(room.id);
+      }
+      
       setTimeout(() => {
         nextRound(room.id);
       }, 2000);
@@ -752,6 +904,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }));
       return;
     }
+    
+    // Mark player as having answered (skipped) this word
+    markPlayerAnswered(room.id, ws.userId);
 
     // Skip is treated as no action (0 points, no elimination)
     const points = 0;
@@ -784,6 +939,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // Move to next round after skip
+    // Stop the per-word timer immediately to prevent race condition
+    if (perWordTimers.has(room.id)) {
+      clearInterval(perWordTimers.get(room.id)!);
+      perWordTimers.delete(room.id);
+    }
+    
     setTimeout(() => {
       nextRound(room.id);
     }, 2000);
@@ -894,6 +1055,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Reset hints for all players when moving to next word
       resetRoomHints(roomId);
       
+      // Reset answered tracking for new word
+      resetAnsweredTracking(roomId);
+      
       // Get settings for time per word
       const settings = room.settings as any || {};
       const timePerWord = parseInt(settings.timeLimit) || 45;
@@ -906,6 +1070,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.updateGameRoom(roomId, {
         gameState: gameState
       });
+
+      // Restart per-word timer for the new word
+      startPerWordTimer(roomId);
 
       broadcastToRoom(roomId, {
         type: 'next_round',
@@ -929,10 +1096,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Clean up hint tracking for this room
     resetRoomHints(roomId);
     
+    // Clean up answered tracking for this room
+    resetAnsweredTracking(roomId);
+    
     // Clear the global timer if it exists
     if (activeTimers.has(roomId)) {
       clearInterval(activeTimers.get(roomId)!);
       activeTimers.delete(roomId);
+    }
+    
+    // Clear the per-word timer if it exists
+    if (perWordTimers.has(roomId)) {
+      clearInterval(perWordTimers.get(roomId)!);
+      perWordTimers.delete(roomId);
     }
 
     const sessions = await storage.getGameSessionsByRoom(roomId);

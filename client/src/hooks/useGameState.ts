@@ -368,6 +368,23 @@ export function useGameState() {
           globalTimer: message.payload.timeRemaining
         } : null);
         break;
+      case 'word_timer_update':
+        // Update per-word timer
+        setGameState(prev => prev ? {
+          ...prev,
+          timeLeft: message.payload.timeLeft
+        } : null);
+        break;
+      case 'game_restarted':
+        // Clear game results to show lobby again
+        setGameResults(null);
+        setGameState(null);
+        toast({
+          title: "Game Restarted",
+          description: "Get ready for another round!",
+          variant: "default"
+        });
+        break;
       case 'error':
         console.error('Game error:', message.payload.message);
         
@@ -531,6 +548,17 @@ export function useGameState() {
       payload: {}
     });
   };
+  
+  const restartGame = () => {
+    sendMessage({
+      type: 'restart_game',
+      payload: {}
+    });
+    
+    // Clear game results to show lobby again
+    setGameResults(null);
+    setGameState(null);
+  };
 
   return {
     gameState,
@@ -552,6 +580,7 @@ export function useGameState() {
     skipWord,
     markPlayerReady,
     updateSettings,
+    restartGame,
     isUserReady
   };
 }

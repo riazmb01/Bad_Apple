@@ -1,4 +1,4 @@
-import { Trophy, Medal, Award, Home } from "lucide-react";
+import { Trophy, Medal, Award, Home, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -15,12 +15,16 @@ interface MultiplayerResultsProps {
   players: Player[];
   currentUserId: string;
   onBackToMenu: () => void;
+  onPlayAgain: () => void;
+  roomCode?: string;
 }
 
 export default function MultiplayerResults({ 
   players, 
   currentUserId, 
-  onBackToMenu 
+  onBackToMenu,
+  onPlayAgain,
+  roomCode
 }: MultiplayerResultsProps) {
   const sortedPlayers = [...players].sort((a, b) => (b.score || 0) - (a.score || 0));
   const winner = sortedPlayers[0];
@@ -136,8 +140,18 @@ export default function MultiplayerResults({
           {/* Action Buttons */}
           <div className="flex justify-center space-x-4">
             <Button 
+              onClick={onPlayAgain}
+              size="lg"
+              variant="default"
+              data-testid="button-play-again"
+            >
+              <RotateCw className="w-4 h-4 mr-2" />
+              Play Again
+            </Button>
+            <Button 
               onClick={onBackToMenu}
               size="lg"
+              variant="outline"
               data-testid="button-back-to-menu"
             >
               <Home className="w-4 h-4 mr-2" />
