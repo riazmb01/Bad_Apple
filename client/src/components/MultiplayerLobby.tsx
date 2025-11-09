@@ -172,28 +172,6 @@ export default function MultiplayerLobby({
                   </Select>
                 </div>
 
-                {/* Time Limit */}
-                <div>
-                  <Label htmlFor="time-limit" className="text-sm font-medium text-foreground mb-2 block">
-                    Time Per Word
-                  </Label>
-                  <Select 
-                    value={gameSettings.timeLimit} 
-                    onValueChange={(value) => updateSetting('timeLimit', value)}
-                    disabled={!isHost}
-                  >
-                    <SelectTrigger data-testid="select-time-limit">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30">30 seconds</SelectItem>
-                      <SelectItem value="45">45 seconds</SelectItem>
-                      <SelectItem value="60">60 seconds</SelectItem>
-                      <SelectItem value="90">90 seconds</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Hints Enabled - Only show for spelling games */}
                 {gameMode === 'spelling' && (
                   <div className="flex items-center space-x-3">
