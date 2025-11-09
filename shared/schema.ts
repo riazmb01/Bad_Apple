@@ -45,6 +45,8 @@ export const gameSessions = pgTable("game_sessions", {
   isReady: boolean("is_ready").default(true),
   isComplete: boolean("is_complete").default(false),
   isConnected: boolean("is_connected").default(true),
+  isEliminated: boolean("is_eliminated").default(false),
+  eliminatedAt: timestamp("eliminated_at"),
   disconnectedAt: timestamp("disconnected_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -137,6 +139,8 @@ export interface PlayerState {
   isReady: boolean;
   isActive: boolean;
   isConnected?: boolean;
+  isEliminated?: boolean; // For elimination round mode
+  eliminatedAt?: number; // Timestamp when player was eliminated
   currentAnswer?: string;
   hintsUsed: number;
 }
