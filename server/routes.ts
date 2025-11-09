@@ -1160,6 +1160,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           accuracy: newAccuracy,
           bestStreak: newBestStreak,
           gamesPlayed: (user.gamesPlayed || 0) + 1,
+          lastAccessed: new Date(), // Update activity timestamp
         });
       }
     }
@@ -1585,6 +1586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bestStreak: newBestStreak,
         gamesWon: (user.gamesWon || 0) + 1, // Count each completed game
         gamesPlayed: (user.gamesPlayed || 0) + 1, // Increment games played
+        lastAccessed: new Date(), // Update activity timestamp
       });
 
       res.json(updatedUser);
