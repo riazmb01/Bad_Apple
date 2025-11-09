@@ -72,6 +72,7 @@ export class MongoDBStorage implements IStorage {
       totalCorrect: 0,
       totalAttempts: 0,
       achievements: [],
+      hasCustomUsername: false,
       createdAt: new Date(),
       ...insertUser,
     };

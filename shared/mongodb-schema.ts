@@ -17,6 +17,7 @@ export interface UserDocument {
   totalCorrect: number;
   totalAttempts: number;
   achievements: any[];
+  hasCustomUsername: boolean;
   createdAt: Date;
 }
 
@@ -88,6 +89,7 @@ export const insertUserSchema = z.object({
   totalCorrect: z.number().optional(),
   totalAttempts: z.number().optional(),
   achievements: z.array(z.any()).optional(),
+  hasCustomUsername: z.boolean().optional(),
 });
 
 export const insertGameRoomSchema = z.object({
