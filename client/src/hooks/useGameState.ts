@@ -110,6 +110,9 @@ export function useGameState() {
   // Update currentUser with actual database values when data is fetched
   useEffect(() => {
     if (dbUserData) {
+      // Calculate level from points (1000 points per level)
+      const calculatedLevel = Math.floor((dbUserData.points || 0) / 1000) + 1;
+      
       setCurrentUser(prev => ({
         ...prev,
         points: dbUserData.points || 0,
@@ -119,7 +122,7 @@ export function useGameState() {
         gamesWon: dbUserData.gamesWon || 0,
         gamesPlayed: dbUserData.gamesPlayed || 0,
         bestStreak: dbUserData.bestStreak || 0,
-        level: dbUserData.level || 1
+        level: calculatedLevel
       }));
     }
   }, [dbUserData]);
