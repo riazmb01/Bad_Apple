@@ -1,6 +1,7 @@
-import { Trophy, TrendingUp, Bug } from "lucide-react";
+import { Trophy, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { AchievementWithStatus } from "@shared/schema";
+import BeeIcon from "./BeeIcon";
 
 interface AppHeaderProps {
   user: {
@@ -32,8 +33,8 @@ export default function AppHeader({ user, dbUserId }: AppHeaderProps) {
         <div className="flex justify-between items-center h-16">
           {/* Logo and Title */}
           <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-              <Bug className="text-primary-foreground w-6 h-6" />
+            <div className="w-10 h-10 bg-yellow-400 rounded-lg flex items-center justify-center">
+              <BeeIcon className="w-7 h-7" />
             </div>
             <div>
               <h1 className="text-xl font-bold text-foreground" data-testid="app-title">Bad Apple</h1>
