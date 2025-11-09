@@ -1260,6 +1260,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+    
+    // Update lastAccessed timestamp when user is fetched
+    await storage.updateUser(user.id, { lastAccessed: new Date() });
+    
     res.json(user);
   });
 
@@ -1269,6 +1273,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "User not found" });
     }
     res.json(user);
+  });
+
+  app.patch("/api/users/:id/activity", async (req, res) => {
+    try {
+      const user = await storage.updateUser(req.params.id, { 
+        lastAccessed: new Date() 
+      });
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json({ success: true, lastAccessed: user.lastAccessed });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update user activity" });
+    }
   });
 
   app.post("/api/rooms", async (req, res) => {
