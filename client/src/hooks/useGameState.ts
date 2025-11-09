@@ -279,8 +279,38 @@ export function useGameState() {
           // Update player's own score
           setPlayerState(prev => prev ? {
             ...prev,
-            score: prev.score + message.payload.points
+            score: message.payload.updatedScore || (prev.score + message.payload.points)
           } : null);
+        }
+        // Update the player's score in connectedPlayers for live leaderboard
+        if (message.payload.updatedScore !== undefined) {
+          setConnectedPlayers(prev => 
+            prev.map(p => 
+              p.userId === message.payload.userId 
+                ? { ...p, score: message.payload.updatedScore }
+                : p
+            )
+          );
+        }
+        break;
+      case 'player_eliminated':
+        // Update players list to mark player as eliminated
+        if (message.payload.players) {
+          setConnectedPlayers(message.payload.players);
+        }
+        // Show toast if the current user was eliminated
+        if (message.payload.userId === dbUserId) {
+          toast({
+            title: "You've Been Eliminated!",
+            description: "You got a word wrong and have been eliminated from this round. You can spectate the remaining players.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Player Eliminated",
+            description: `${message.payload.username} has been eliminated!`,
+            variant: "default"
+          });
         }
         break;
       case 'hint_revealed':

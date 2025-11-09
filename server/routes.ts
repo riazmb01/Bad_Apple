@@ -479,6 +479,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isReady: session.isReady ?? true,
           isActive: session.isConnected || false,
           isConnected: session.isConnected || false,
+          isEliminated: session.isEliminated || false,
+          eliminatedAt: session.eliminatedAt ? session.eliminatedAt.getTime() : undefined,
           hintsUsed: session.hintsUsed || 0
         };
       })
@@ -554,6 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const gameState = room.gameState as GameState;
     const currentWord = gameState.currentWord;
+    const isEliminationMode = gameState.competitionType === 'elimination';
     
     if (!currentWord) return;
 
@@ -565,25 +568,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userSession = sessions.find(s => s.userId === ws.userId);
     
     if (userSession) {
-      await storage.updateGameSession(userSession.id, {
+      const updates: Partial<GameSession> = {
         score: (userSession.score || 0) + points,
         correctAnswers: (userSession.correctAnswers || 0) + (isCorrect ? 1 : 0),
         totalAnswers: (userSession.totalAnswers || 0) + 1
-      });
-    }
+      };
 
-    // Broadcast answer result
-    broadcastToRoom(room.id, {
-      type: 'answer_submitted',
-      payload: {
-        userId: ws.userId,
-        username: ws.username,
-        answer,
-        isCorrect,
-        correctWord: currentWord.word,
-        points
+      // In elimination mode, eliminate player if they get it wrong
+      if (isEliminationMode && !isCorrect && !userSession.isEliminated) {
+        updates.isEliminated = true;
+        updates.eliminatedAt = new Date();
       }
-    });
+
+      await storage.updateGameSession(userSession.id, updates);
+
+      // Get updated session to get the new score
+      const updatedSession = await storage.getGameSession(userSession.id);
+      const newScore = updatedSession?.score || 0;
+
+      // Broadcast answer result with updated score
+      broadcastToRoom(room.id, {
+        type: 'answer_submitted',
+        payload: {
+          userId: ws.userId,
+          username: ws.username,
+          answer,
+          isCorrect,
+          correctWord: currentWord.word,
+          points,
+          updatedScore: newScore
+        }
+      });
+
+      // In elimination mode, if player was just eliminated, broadcast it
+      if (isEliminationMode && updates.isEliminated) {
+        const updatedSessions = await storage.getGameSessionsByRoom(room.id);
+        const players = await getPlayerList(updatedSessions);
+        
+        broadcastToRoom(room.id, {
+          type: 'player_eliminated',
+          payload: {
+            userId: ws.userId,
+            username: ws.username,
+            players
+          }
+        });
+
+        // Check if game should end (only one player left or all eliminated)
+        const activePlayers = updatedSessions.filter(s => !s.isEliminated);
+        if (activePlayers.length <= 1) {
+          // End game after a short delay to show elimination message
+          setTimeout(() => {
+            endGame(room.id);
+          }, 3000);
+          return;
+        }
+      }
+    }
 
     // Move to next round if needed
     if (isCorrect || gameState.timeLeft <= 0) {
