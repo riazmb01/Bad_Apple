@@ -1,17 +1,16 @@
 import { MongoClient, Db, Collection } from 'mongodb';
 
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/';
-const DB_NAME = 'wordDB';
 
 let client: MongoClient | null = null;
-let db: Db | null = null;
+const dbCache = new Map<string, Db>();
 let connectionFailed = false;
 let lastConnectionAttempt = 0;
 const RETRY_DELAY = 60000; // 1 minute before retrying
 
-export async function connectToMongoDB(): Promise<Db> {
-  if (db) {
-    return db;
+async function connectToMongoClient(): Promise<MongoClient> {
+  if (client) {
+    return client;
   }
 
   // If connection failed recently, don't retry immediately
@@ -27,10 +26,9 @@ export async function connectToMongoDB(): Promise<Db> {
       connectTimeoutMS: 2000
     });
     await client.connect();
-    db = client.db(DB_NAME);
     connectionFailed = false;
     console.log('Connected to MongoDB successfully');
-    return db;
+    return client;
   } catch (error) {
     connectionFailed = true;
     console.error('Failed to connect to MongoDB:', error);
@@ -38,15 +36,30 @@ export async function connectToMongoDB(): Promise<Db> {
   }
 }
 
+export async function getMongoCollection(dbName: string, collectionName: string): Promise<Collection> {
+  const mongoClient = await connectToMongoClient();
+  
+  // Cache database connections
+  if (!dbCache.has(dbName)) {
+    dbCache.set(dbName, mongoClient.db(dbName));
+  }
+  
+  const db = dbCache.get(dbName)!;
+  return db.collection(collectionName);
+}
+
 export async function getWordsCollection(): Promise<Collection> {
-  const database = await connectToMongoDB();
-  return database.collection('ex1DB');
+  return getMongoCollection('wordDB', 'ex1DB');
+}
+
+export async function getGrammarCollection(): Promise<Collection> {
+  return getMongoCollection('test', 'grammarGame');
 }
 
 export async function closeMongoDB(): Promise<void> {
   if (client) {
     await client.close();
     client = null;
-    db = null;
+    dbCache.clear();
   }
 }
