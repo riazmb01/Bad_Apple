@@ -703,13 +703,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         break;
     }
     
+    let updatedScore = 0;
     if (userSession) {
+      updatedScore = Math.max(0, (userSession.score || 0) - pointsDeducted);
       await storage.updateGameSession(userSession.id, {
-        score: Math.max(0, (userSession.score || 0) - pointsDeducted),
+        score: updatedScore,
         hintsUsed: (userSession.hintsUsed || 0) + 1
       });
     }
 
+    // Send hint content to the requesting player
     ws.send(JSON.stringify({
       type: 'hint_revealed',
       payload: {
@@ -718,6 +721,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pointsDeducted
       }
     }));
+
+    // Broadcast score update to all players in the room for live leaderboard
+    broadcastToRoom(room.id, {
+      type: 'score_updated',
+      payload: {
+        userId: ws.userId,
+        username: ws.username,
+        score: updatedScore,
+        reason: 'hint_used'
+      }
+    });
   }
 
   async function handlePlayerReady(ws: WebSocketClient, payload: any) {

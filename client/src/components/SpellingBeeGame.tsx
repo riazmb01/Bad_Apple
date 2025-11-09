@@ -153,6 +153,8 @@ export default function SpellingBeeGame({
   }, [currentWord, isMuted]);
 
   // Reset hints and feedback on word changes (but NOT timer)
+  // In multiplayer: reset when currentWord changes
+  // In single player: reset when currentWordIndex changes
   useEffect(() => {
     setUserInput('');
     setFeedback({ show: false, isCorrect: false, message: '' });
@@ -161,7 +163,7 @@ export default function SpellingBeeGame({
       definition: false,
       sentence: false
     });
-  }, [currentWordIndex]);
+  }, [currentWordIndex, currentWord?.word]);
 
   // Timer countdown - runs continuously, not reset per word
   useEffect(() => {

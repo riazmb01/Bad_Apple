@@ -333,6 +333,24 @@ export function useGameState() {
       case 'hint_revealed':
         // Handle hint reveal
         break;
+      case 'score_updated':
+        // Update player score when they use a hint
+        if (message.payload.userId === dbUserId) {
+          // Update own score
+          setPlayerState(prev => prev ? {
+            ...prev,
+            score: message.payload.score
+          } : null);
+        }
+        // Update the player's score in connectedPlayers for live leaderboard
+        setConnectedPlayers(prev => 
+          prev.map(p => 
+            p.userId === message.payload.userId 
+              ? { ...p, score: message.payload.score }
+              : p
+          )
+        );
+        break;
       case 'timer_update':
         // Update global timer for timed challenge mode
         setGameState(prev => prev ? {
