@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession, ACHIEVEMENT_DEFINITIONS, type AchievementWithStatus } from "@shared/schema";
-import { getWordsCollection } from "./mongodb";
+import { getWordsCollection, getGrammarCollection } from "./mongodb";
 
 interface WebSocketClient extends WebSocket {
   userId?: string;
@@ -1047,6 +1047,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Failed to fetch words from MongoDB:', error);
       res.status(503).json({ 
         message: "Game mode unavailable - words cannot be fetched from database. Please try again later." 
+      });
+    }
+  });
+
+  app.get("/api/grammar/batch", async (req, res) => {
+    try {
+      const count = parseInt(req.query.count as string) || 5;
+      
+      const grammarCollection = await getGrammarCollection();
+      
+      const rawQuestions = await grammarCollection
+        .aggregate([
+          { $sample: { size: count } }
+        ])
+        .toArray();
+      
+      const transformedQuestions = rawQuestions
+        .map((doc: any) => {
+          if (!doc.sentence || !doc.question || !doc.answer || !doc.options) {
+            return null;
+          }
+          
+          return {
+            id: doc._id?.toString() || '',
+            sentence: doc.sentence,
+            question: doc.question,
+            options: doc.options,
+            answer: doc.answer,
+            maskedWord: doc.masked_word || ''
+          };
+        })
+        .filter((question: any) => question !== null);
+      
+      if (transformedQuestions.length > 0) {
+        return res.json(transformedQuestions);
+      }
+      
+      res.status(503).json({ 
+        message: "Game mode unavailable - grammar questions cannot be fetched from database. Please try again later." 
+      });
+    } catch (error) {
+      console.error('Failed to fetch grammar questions from MongoDB:', error);
+      res.status(503).json({ 
+        message: "Game mode unavailable - grammar questions cannot be fetched from database. Please try again later." 
       });
     }
   });

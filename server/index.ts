@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { connectToMongoDB } from "./mongodb";
+import { getWordsCollection } from "./mongodb";
 
 const app = express();
 app.use(express.json());
@@ -39,9 +39,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Connect to MongoDB
+  // Test MongoDB connection
   try {
-    await connectToMongoDB();
+    await getWordsCollection();
     log('MongoDB connected successfully');
   } catch (error) {
     log('Failed to connect to MongoDB, continuing without it');
