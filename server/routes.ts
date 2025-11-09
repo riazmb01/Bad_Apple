@@ -564,6 +564,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const sessions = await storage.getGameSessionsByRoom(room.id);
     const userSession = sessions.find(s => s.userId === ws.userId);
     
+    console.log('[SESSION_CHECK]', {
+      totalSessions: sessions.length,
+      userSessionFound: !!userSession,
+      userId: ws.userId,
+      sessionUserIds: sessions.map(s => s.userId)
+    });
+    
     // Reject submissions from already-eliminated players
     if (userSession?.isEliminated) {
       ws.send(JSON.stringify({
@@ -611,6 +618,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get updated session to get the new score
       const updatedSession = await storage.getGameSession(userSession.id);
       const newScore = updatedSession?.score || 0;
+
+      console.log('[BROADCASTING_SCORE]', {
+        userId: ws.userId,
+        username: ws.username,
+        isCorrect,
+        points,
+        newScore
+      });
 
       // Broadcast answer result with updated score
       broadcastToRoom(room.id, {
