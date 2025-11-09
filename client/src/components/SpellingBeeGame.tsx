@@ -140,7 +140,9 @@ export default function SpellingBeeGame({
     }
   }, [currentWordIndex, words.length, nextWords.length]);
 
-  const currentWord = words[currentWordIndex] || null;
+  // In multiplayer mode, use the server's current word from gameState
+  // In single player mode, use local words array
+  const currentWord = gameState?.currentWord || words[currentWordIndex] || null;
 
   // Auto-play pronunciation for new words
   useEffect(() => {
