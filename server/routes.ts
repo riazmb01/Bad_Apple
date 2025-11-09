@@ -724,7 +724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         break;
       case 'sentence':
         hintContent = currentWord.exampleSentence;
-        pointsDeducted = 3;
+        pointsDeducted = 4;
         break;
     }
     
