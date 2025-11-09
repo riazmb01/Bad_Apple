@@ -352,8 +352,8 @@ export default function GrammarGame({
         const points = 10; // Base points for grammar questions
         setScore(prev => prev + points);
         
-        // Add 5 seconds to timer for correct answer
-        setTimeLeft(prev => prev + 5);
+        // Add 5 seconds to timer for correct answer (capped at 60 seconds max)
+        setTimeLeft(prev => Math.min(60, prev + 5));
         
         setFeedback({
           show: true,
@@ -361,10 +361,13 @@ export default function GrammarGame({
           message: `Correct! ${currentQuestion.question} The answer is "${currentQuestion.answer}". You earned ${points} points! +5 seconds`
         });
       } else {
+        // Subtract 3 seconds for incorrect answer
+        setTimeLeft(prev => Math.max(0, prev - 3));
+        
         setFeedback({
           show: true,
           isCorrect: false,
-          message: `Incorrect. The correct answer is "${currentQuestion.answer}".`
+          message: `Incorrect. The correct answer is "${currentQuestion.answer}". -3 seconds`
         });
       }
       
@@ -435,17 +438,20 @@ export default function GrammarGame({
             setCorrectCount(prev => prev + 1);
             const points = 10;
             setScore(prev => prev + points);
-            setTimeLeft(prev => prev + 5);
+            // Add 5 seconds to timer for correct answer (capped at 60 seconds max)
+            setTimeLeft(prev => Math.min(60, prev + 5));
             setFeedback({
               show: true,
               isCorrect: true,
               message: `Correct! ${currentQuestion.question} The answer is "${currentQuestion.answer}". You earned ${points} points! +5 seconds`
             });
           } else {
+            // Subtract 3 seconds for incorrect answer
+            setTimeLeft(prev => Math.max(0, prev - 3));
             setFeedback({
               show: true,
               isCorrect: false,
-              message: `Incorrect. The correct answer is "${currentQuestion.answer}".`
+              message: `Incorrect. The correct answer is "${currentQuestion.answer}". -3 seconds`
             });
           }
           onSubmitAnswer(currentQuestion.options[focusedOptionIndex]);
