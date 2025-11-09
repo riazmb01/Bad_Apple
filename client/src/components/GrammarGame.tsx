@@ -87,6 +87,7 @@ export default function GrammarGame({
   const timeoutRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [totalAttempts, setTotalAttempts] = useState(0);
@@ -298,6 +299,43 @@ export default function GrammarGame({
     }
   }, [gameOver, userId, score, correctCount, totalAttempts, timeLeft]);
 
+  // Helper function to schedule auto-advance to next question
+  const scheduleAutoAdvance = () => {
+    // Clear any existing auto-advance timeout
+    if (autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+    
+    // Schedule auto-advance after 2 seconds (same as Spelling Bee)
+    autoAdvanceRef.current = setTimeout(() => {
+      // Guard: only advance if game is not over
+      if (!timeoutRef.current) {
+        setCurrentQuestionIndex(prev => prev + 1);
+        setTotalQuestionsAttempted(prev => prev + 1);
+      }
+      autoAdvanceRef.current = null;
+    }, 2000);
+  };
+
+  // Cleanup auto-advance timeout on unmount or game over
+  useEffect(() => {
+    return () => {
+      if (autoAdvanceRef.current) {
+        clearTimeout(autoAdvanceRef.current);
+        autoAdvanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Clear auto-advance when game ends
+  useEffect(() => {
+    if (gameOver && autoAdvanceRef.current) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+  }, [gameOver]);
+
   const handleTimeOut = () => {
     setGameOver(true);
     timeoutRef.current = false;
@@ -331,13 +369,9 @@ export default function GrammarGame({
       }
       
       onSubmitAnswer(selectedAnswer);
-    }
-  };
-
-  const handleNextQuestion = () => {
-    if (!gameOver) {
-      setCurrentQuestionIndex(prev => prev + 1);
-      setTotalQuestionsAttempted(prev => prev + 1);
+      
+      // Auto-advance to next question after 2 seconds
+      scheduleAutoAdvance();
     }
   };
 
@@ -350,6 +384,9 @@ export default function GrammarGame({
         message: `Skipped. The correct answer was "${currentQuestion?.answer || 'unknown'}".`
       });
       onSkipWord();
+      
+      // Auto-advance to next question after 2 seconds
+      scheduleAutoAdvance();
     }
   };
 
@@ -374,7 +411,7 @@ export default function GrammarGame({
 
   // Keyboard navigation for answer options
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!currentQuestion || gameOver) return;
+    if (!currentQuestion || gameOver || feedback.show) return;
 
     const optionsCount = currentQuestion.options.length;
 
@@ -386,11 +423,6 @@ export default function GrammarGame({
       setFocusedOptionIndex(prev => (prev - 1 + optionsCount) % optionsCount);
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (feedback.show) {
-        // After answering, Enter advances to next question
-        handleNextQuestion();
-        return;
-      }
       if (currentQuestion.options[focusedOptionIndex]) {
         // Before answering, Enter submits the focused option
         setSelectedAnswer(currentQuestion.options[focusedOptionIndex]);
@@ -417,6 +449,9 @@ export default function GrammarGame({
             });
           }
           onSubmitAnswer(currentQuestion.options[focusedOptionIndex]);
+          
+          // Auto-advance to next question after 2 seconds
+          scheduleAutoAdvance();
         }, 0);
       }
     }
@@ -585,24 +620,14 @@ export default function GrammarGame({
                 Pause
               </Button>
               
-              {!feedback.show ? (
-                <Button 
-                  onClick={handleSubmit}
-                  disabled={!selectedAnswer || feedback.show}
-                  data-testid="button-submit-answer"
-                >
-                  <Check className="mr-2 w-4 h-4" />
-                  Submit Answer
-                </Button>
-              ) : (
-                <Button 
-                  onClick={handleNextQuestion}
-                  data-testid="button-next-question"
-                >
-                  <SkipForward className="mr-2 w-4 h-4" />
-                  Next Question
-                </Button>
-              )}
+              <Button 
+                onClick={handleSubmit}
+                disabled={!selectedAnswer || feedback.show}
+                data-testid="button-submit-answer"
+              >
+                <Check className="mr-2 w-4 h-4" />
+                Submit Answer
+              </Button>
             </div>
           </div>
         </CardContent>
