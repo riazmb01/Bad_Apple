@@ -199,6 +199,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       case 'player_ready':
         await handlePlayerReady(ws, message.payload);
         break;
+      case 'ready_for_next_game':
+        await handleReadyForNextGame(ws, message.payload);
+        break;
+      case 'restart_game':
+        await handleRestartGame(ws, message.payload);
+        break;
       case 'update_settings':
         await handleUpdateSettings(ws, message.payload);
         break;
