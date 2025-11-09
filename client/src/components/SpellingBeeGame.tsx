@@ -346,14 +346,27 @@ export default function SpellingBeeGame({
     // Eliminated players cannot skip words
     if (isEliminated) return;
     
-    if (!gameOver) {
+    if (!gameOver && !feedback.show && currentWord) {
       setTotalAttempts(prev => prev + 1);
       // Reset streak on skip
       setCurrentStreak(0);
+      
+      // Show feedback with the correct word spelling
+      setFeedback({
+        show: true,
+        isCorrect: false,
+        message: `Skipped. The correct spelling was "${currentWord.word}".`
+      });
+      
       // Notify parent component that word was skipped
       onSkipWord();
-      setCurrentWordIndex(prev => prev + 1);
-      setTotalWordsAttempted(prev => prev + 1);
+      
+      // Auto-advance to next word after 2 seconds
+      setTimeout(() => {
+        setUserInput('');
+        setCurrentWordIndex(prev => prev + 1);
+        setTotalWordsAttempted(prev => prev + 1);
+      }, 2000);
     }
   };
 
@@ -544,6 +557,7 @@ export default function SpellingBeeGame({
             <Button 
               variant="ghost"
               onClick={handleSkipWord}
+              disabled={feedback.show}
               data-testid="button-skip-word"
             >
               <Forward className="mr-2 w-4 h-4" />
