@@ -166,8 +166,22 @@ export default function MultiplayerLobby({
                     <SelectContent>
                       <SelectItem value="elimination">Elimination Round</SelectItem>
                       <SelectItem value="timed">Timed Challenge</SelectItem>
-                      <SelectItem value="team">Team Battle</SelectItem>
-                      <SelectItem value="relay">Word Relay</SelectItem>
+                      <SelectItem value="team" disabled>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="opacity-50">Team Battle</span>
+                          <span className="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                            COMING SOON
+                          </span>
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="relay" disabled>
+                        <div className="flex items-center justify-between w-full">
+                          <span className="opacity-50">Word Relay</span>
+                          <span className="ml-2 px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400">
+                            COMING SOON
+                          </span>
+                        </div>
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
