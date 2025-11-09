@@ -86,6 +86,7 @@ export default function GrammarGame({
   const [gameOver, setGameOver] = useState(false);
   const timeoutRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [totalAttempts, setTotalAttempts] = useState(0);
@@ -214,7 +215,16 @@ export default function GrammarGame({
     setSelectedAnswer('');
     setFeedback({ show: false, isCorrect: false, message: '' });
     setFocusedOptionIndex(0);
+    // Re-focus wrapper for keyboard navigation
+    wrapperRef.current?.focus();
   }, [currentQuestionIndex]);
+
+  // Re-focus wrapper when feedback appears so Enter key can advance to next question
+  useEffect(() => {
+    if (feedback.show) {
+      wrapperRef.current?.focus();
+    }
+  }, [feedback.show]);
 
   // Continuous timer countdown - runs throughout the game, not reset per question
   useEffect(() => {
@@ -517,7 +527,7 @@ export default function GrammarGame({
             )}
 
             {/* Answer Options */}
-            <div className="max-w-md mx-auto" onKeyDown={handleKeyDown} tabIndex={0}>
+            <div ref={wrapperRef} className="max-w-md mx-auto" onKeyDown={handleKeyDown} tabIndex={0}>
               <RadioGroup value={selectedAnswer} onValueChange={setSelectedAnswer} disabled={feedback.show}>
                 {currentQuestion.options.map((option, index) => (
                   <div key={option} className={`flex items-center space-x-2 p-3 border rounded-lg ${
