@@ -209,6 +209,7 @@ export default function Home() {
         {currentMode === 'grammar' && (
           <GrammarGame
             gameState={gameState || undefined}
+            userId={dbUserId}
             onSubmitAnswer={submitAnswer}
             onSkipWord={handleSkipWord}
             onPauseGame={handlePauseGame}
