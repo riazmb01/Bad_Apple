@@ -1,0 +1,25 @@
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Wings -->
+  <ellipse cx="8" cy="10" rx="4" ry="3" fill="white" fill-opacity="0.7" />
+  <ellipse cx="16" cy="10" rx="4" ry="3" fill="white" fill-opacity="0.7" />
+  
+  <!-- Body - Yellow base -->
+  <ellipse cx="12" cy="13" rx="5" ry="6" fill="#FCD34D" />
+  
+  <!-- Black stripes -->
+  <rect x="7" y="10" width="10" height="1.5" fill="#1F2937" rx="0.5" />
+  <rect x="7" y="13" width="10" height="1.5" fill="#1F2937" rx="0.5" />
+  <rect x="7" y="16" width="10" height="1.5" fill="#1F2937" rx="0.5" />
+  
+  <!-- Head -->
+  <circle cx="12" cy="7" r="2.5" fill="#1F2937" />
+  
+  <!-- Antennae -->
+  <line x1="11" y1="5.5" x2="10" y2="3.5" stroke="#1F2937" stroke-width="1" stroke-linecap="round" />
+  <line x1="13" y1="5.5" x2="14" y2="3.5" stroke="#1F2937" stroke-width="1" stroke-linecap="round" />
+  <circle cx="10" cy="3.5" r="0.8" fill="#1F2937" />
+  <circle cx="14" cy="3.5" r="0.8" fill="#1F2937" />
+  
+  <!-- Stinger -->
+  <path d="M12 19 L11.5 21 L12.5 21 Z" fill="#1F2937" />
+</svg>
