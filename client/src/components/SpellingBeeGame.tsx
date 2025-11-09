@@ -24,6 +24,7 @@ interface SpellingBeeGameProps {
   onUseHint: (hintType: string) => void;
   onSkipWord: () => void;
   onPauseGame: () => void;
+  isEliminated?: boolean; // For elimination mode - disables input if player is eliminated
 }
 
 export default function SpellingBeeGame({ 
@@ -32,7 +33,8 @@ export default function SpellingBeeGame({
   onSubmitAnswer, 
   onUseHint, 
   onSkipWord, 
-  onPauseGame 
+  onPauseGame,
+  isEliminated = false
 }: SpellingBeeGameProps) {
   const [userInput, setUserInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(60);
@@ -239,6 +241,9 @@ export default function SpellingBeeGame({
   };
 
   const handleSubmit = () => {
+    // Eliminated players cannot submit answers
+    if (isEliminated) return;
+    
     if (userInput.trim() && currentWord && !gameOver) {
       const isCorrect = userInput.trim().toLowerCase() === currentWord.word.toLowerCase();
       
@@ -290,6 +295,9 @@ export default function SpellingBeeGame({
   };
 
   const handleUseHint = (hintType: string) => {
+    // Eliminated players cannot use hints
+    if (isEliminated) return;
+    
     onUseHint(hintType);
     setHintsUsed(prev => ({ ...prev, [hintType]: true }));
   };
@@ -302,6 +310,9 @@ export default function SpellingBeeGame({
   };
 
   const handleSkipWord = () => {
+    // Eliminated players cannot skip words
+    if (isEliminated) return;
+    
     if (!gameOver) {
       setTotalAttempts(prev => prev + 1);
       // Notify parent component that word was skipped

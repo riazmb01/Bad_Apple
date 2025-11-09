@@ -1,4 +1,4 @@
-import { Trophy, Users } from "lucide-react";
+import { Trophy, Users, XCircle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import SpellingBeeGame from "./SpellingBeeGame";
 import GrammarGame from "./GrammarGame";
@@ -25,6 +25,9 @@ export default function MultiplayerGameView({
 }: MultiplayerGameViewProps) {
   const sortedPlayers = [...connectedPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
   const isTimedChallenge = gameState.competitionType === 'timed';
+  const isEliminationMode = gameState.competitionType === 'elimination';
+  const currentPlayer = connectedPlayers.find(p => p.userId === currentUserId);
+  const isEliminated = currentPlayer?.isEliminated || false;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -74,10 +77,16 @@ export default function MultiplayerGameView({
                         {player.userId === currentUserId && (
                           <span className="ml-2 text-xs text-primary">(You)</span>
                         )}
+                        {player.isEliminated && (
+                          <span className="ml-2 text-xs text-destructive">(Eliminated)</span>
+                        )}
                       </div>
                     </div>
                   </div>
-                  <div className="text-lg font-bold text-foreground">{player.score || 0}</div>
+                  <div className="flex items-center gap-2">
+                    {player.isEliminated && <XCircle className="w-4 h-4 text-destructive" data-testid={`eliminated-icon-${player.userId}`} />}
+                    <div className="text-lg font-bold text-foreground">{player.score || 0}</div>
+                  </div>
                 </div>
               ))}
             </div>
@@ -94,7 +103,24 @@ export default function MultiplayerGameView({
       </div>
 
       {/* Game Area */}
-      <div className="lg:col-span-3 order-1 lg:order-2">
+      <div className="lg:col-span-3 order-1 lg:order-2 space-y-4">
+        {/* Elimination Banner */}
+        {isEliminationMode && isEliminated && (
+          <Card className="bg-destructive/10 border-destructive/50" data-testid="elimination-banner">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <XCircle className="w-6 h-6 text-destructive" />
+                <div>
+                  <h3 className="text-lg font-semibold text-destructive">You've Been Eliminated</h3>
+                  <p className="text-sm text-muted-foreground">
+                    You got a word wrong and have been eliminated. You can spectate the remaining players.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {gameState.gameMode === 'spelling' && (
           <SpellingBeeGame
             gameState={gameState}
@@ -103,6 +129,7 @@ export default function MultiplayerGameView({
             onUseHint={onUseHint}
             onSkipWord={onSkipWord}
             onPauseGame={onPauseGame}
+            isEliminated={isEliminated}
           />
         )}
         {gameState.gameMode === 'grammar' && (
@@ -111,6 +138,7 @@ export default function MultiplayerGameView({
             onSubmitAnswer={onSubmitAnswer}
             onSkipWord={onSkipWord}
             onPauseGame={onPauseGame}
+            isEliminated={isEliminated}
           />
         )}
       </div>

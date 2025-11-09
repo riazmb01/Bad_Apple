@@ -22,6 +22,7 @@ interface GrammarGameProps {
   onSubmitAnswer: (answer: string) => void;
   onSkipWord: () => void;
   onPauseGame: () => void;
+  isEliminated?: boolean; // For elimination mode - disables input if player is eliminated
 }
 
 interface GrammarQuestion {
@@ -76,7 +77,8 @@ export default function GrammarGame({
   userId, 
   onSubmitAnswer, 
   onSkipWord, 
-  onPauseGame 
+  onPauseGame,
+  isEliminated = false
 }: GrammarGameProps) {
   const { toast } = useToast();
   const [selectedAnswer, setSelectedAnswer] = useState("");
@@ -342,6 +344,9 @@ export default function GrammarGame({
   };
 
   const handleSubmit = () => {
+    // Eliminated players cannot submit answers
+    if (isEliminated) return;
+    
     if (selectedAnswer && currentQuestion && !gameOver && !feedback.show) {
       const isCorrect = selectedAnswer === currentQuestion.answer;
       
@@ -379,6 +384,9 @@ export default function GrammarGame({
   };
 
   const handleSkip = () => {
+    // Eliminated players cannot skip questions
+    if (isEliminated) return;
+    
     if (!gameOver && !feedback.show) {
       setTotalAttempts(prev => prev + 1);
       setFeedback({
@@ -414,6 +422,9 @@ export default function GrammarGame({
 
   // Keyboard navigation for answer options
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Eliminated players cannot interact
+    if (isEliminated) return;
+    
     if (!currentQuestion || gameOver || feedback.show) return;
 
     const optionsCount = currentQuestion.options.length;

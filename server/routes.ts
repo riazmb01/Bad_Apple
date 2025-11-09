@@ -560,12 +560,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (!currentWord) return;
 
-    const isCorrect = answer.toLowerCase() === currentWord.word.toLowerCase();
-    const points = isCorrect ? 100 : 0;
-
     // Update game session
     const sessions = await storage.getGameSessionsByRoom(room.id);
     const userSession = sessions.find(s => s.userId === ws.userId);
+    
+    // Reject submissions from already-eliminated players
+    if (userSession?.isEliminated) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        payload: { message: 'You have been eliminated and cannot submit answers' }
+      }));
+      return;
+    }
+
+    const isCorrect = answer.toLowerCase() === currentWord.word.toLowerCase();
+    const points = isCorrect ? 100 : 0;
     
     if (userSession) {
       const updates: Partial<GameSession> = {
@@ -646,6 +655,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (!currentWord) return;
 
+    // Check game session
+    const sessions = await storage.getGameSessionsByRoom(room.id);
+    const userSession = sessions.find(s => s.userId === ws.userId);
+    
+    // Reject hints from already-eliminated players
+    if (userSession?.isEliminated) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        payload: { message: 'You have been eliminated and cannot use hints' }
+      }));
+      return;
+    }
+
     let hintContent = '';
     let pointsDeducted = 0;
 
@@ -663,10 +685,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         pointsDeducted = 3;
         break;
     }
-
-    // Update game session
-    const sessions = await storage.getGameSessionsByRoom(room.id);
-    const userSession = sessions.find(s => s.userId === ws.userId);
     
     if (userSession) {
       await storage.updateGameSession(userSession.id, {
