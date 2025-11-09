@@ -271,13 +271,16 @@ export default function GrammarGame({
 
   const timeProgress = ((60 - timeLeft) / 60) * 100;
 
-  if ((isLoadingInitial && !initialError) || (!currentQuestion && !initialError)) {
+  // Show loading state until we have a current question (either from API or fallback)
+  if (!currentQuestion) {
     return (
       <section className="mb-12" data-testid="grammar-game">
         <Card>
           <CardContent className="p-8">
             <div className="text-center">
-              <p className="text-lg text-muted-foreground">Loading questions...</p>
+              <p className="text-lg text-muted-foreground">
+                {initialError ? 'Loading offline questions...' : 'Loading questions...'}
+              </p>
             </div>
           </CardContent>
         </Card>
