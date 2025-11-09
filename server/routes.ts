@@ -25,6 +25,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Periodic cleanup for old/inactive rooms (every 5 minutes)
   const ROOM_EXPIRY_TIME = 60 * 60 * 1000; // 1 hour in milliseconds
   const CLEANUP_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  const INACTIVE_USER_THRESHOLD = 90 * 24 * 60 * 60 * 1000; // 90 days in milliseconds
+  const USER_CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
   async function cleanupOldRooms() {
     try {
@@ -59,9 +61,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }
 
+  // Cleanup inactive users function
+  async function cleanupInactiveUsers() {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const now = Date.now();
+      let deletedCount = 0;
+      
+      for (const user of allUsers) {
+        // Skip users with null/undefined lastAccessed timestamp
+        if (!user.lastAccessed) continue;
+        
+        const inactiveDuration = now - new Date(user.lastAccessed).getTime();
+        
+        // Delete user if inactive for more than 90 days
+        if (inactiveDuration > INACTIVE_USER_THRESHOLD) {
+          console.log(`Cleaning up inactive user ${user.username}, last accessed: ${Math.floor(inactiveDuration / (24 * 60 * 60 * 1000))} days ago`);
+          
+          // Clean up user's achievements first
+          const achievements = await storage.getUserAchievements(user.id);
+          for (const achievement of achievements) {
+            await storage.deleteUserAchievement(achievement.id);
+          }
+          
+          // Clean up user's game sessions
+          const sessions = await storage.getGameSessionsByUser(user.id);
+          for (const session of sessions) {
+            await storage.deleteGameSession(session.id);
+          }
+          
+          // Delete the user
+          await storage.deleteUser(user.id);
+          deletedCount++;
+        }
+      }
+      
+      if (deletedCount > 0) {
+        console.log(`Cleaned up ${deletedCount} inactive user(s)`);
+      }
+    } catch (error) {
+      console.error('Error during inactive user cleanup:', error);
+    }
+  }
+
   // Start periodic cleanup
   setInterval(cleanupOldRooms, CLEANUP_INTERVAL);
   console.log('Room cleanup job started (runs every 5 minutes)');
+  
+  // Start inactive user cleanup (runs once a day)
+  setInterval(cleanupInactiveUsers, USER_CLEANUP_INTERVAL);
+  // Run immediately on startup to clean up any existing inactive users
+  cleanupInactiveUsers();
+  console.log('Inactive user cleanup job started (runs every 24 hours)');
 
   // Track active timers for global game timer (3-minute countdown)
   const activeTimers = new Map<string, NodeJS.Timeout>();
