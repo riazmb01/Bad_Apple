@@ -1,8 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./mongodb-storage";
-import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession, ACHIEVEMENT_DEFINITIONS, type AchievementWithStatus } from "@shared/mongodb-schema";
+import { storage } from "./storage";
+import { insertUserSchema, insertGameRoomSchema, insertGameSessionSchema, type GameState, type PlayerState, type Word, type GameSession, ACHIEVEMENT_DEFINITIONS, type AchievementWithStatus } from "@shared/schema";
 import { getWordsCollection, getGrammarCollection } from "./mongodb";
 
 interface WebSocketClient extends WebSocket {
@@ -1269,44 +1269,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(404).json({ message: "User not found" });
     }
     res.json(user);
-  });
-
-  app.patch("/api/users/:id/username", async (req, res) => {
-    try {
-      const { username } = req.body;
-      const userId = req.params.id;
-
-      if (!username || typeof username !== 'string' || username.trim().length === 0) {
-        return res.status(400).json({ message: "Valid username is required" });
-      }
-
-      if (username.length > 50) {
-        return res.status(400).json({ message: "Username must be 50 characters or less" });
-      }
-
-      const trimmedUsername = username.trim();
-
-      // Check if username is already taken by another user
-      const existingUser = await storage.getUserByUsername(trimmedUsername);
-      if (existingUser && existingUser.id !== userId) {
-        return res.status(400).json({ message: "Username already taken" });
-      }
-
-      // Update the user's username and mark as custom
-      const updatedUser = await storage.updateUser(userId, {
-        username: trimmedUsername,
-        hasCustomUsername: true
-      });
-
-      if (!updatedUser) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      res.json(updatedUser);
-    } catch (error) {
-      console.error('Error updating username:', error);
-      res.status(500).json({ message: "Failed to update username" });
-    }
   });
 
   app.post("/api/rooms", async (req, res) => {

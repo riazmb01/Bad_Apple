@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Copy, Settings } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -8,20 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { User } from "@shared/mongodb-schema";
-import UsernamePromptDialog from "./UsernamePromptDialog";
 
 interface MultiplayerLobbyProps {
   roomCode: string;
   connectedPlayers: any[];
   isHost: boolean;
   gameMode?: string;
-  dbUserId?: string;
-  currentUsername?: string;
   onStartGame: () => void;
   onLeaveRoom: () => void;
   onUpdateSettings?: (settings: any) => void;
-  onUsernameUpdate?: (newUsername: string) => void;
 }
 
 export default function MultiplayerLobby({ 
@@ -29,34 +23,17 @@ export default function MultiplayerLobby({
   connectedPlayers, 
   isHost, 
   gameMode,
-  dbUserId,
-  currentUsername,
   onStartGame, 
   onLeaveRoom,
-  onUpdateSettings,
-  onUsernameUpdate
+  onUpdateSettings
 }: MultiplayerLobbyProps) {
   const [gameSettings, setGameSettings] = useState({
     competitionType: "elimination",
     timeLimit: "45",
     hintsEnabled: true
   });
-  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
 
   const { toast } = useToast();
-
-  // Fetch full user data to check if username is customized
-  const { data: fullUser } = useQuery<User>({
-    queryKey: ['/api/users', dbUserId],
-    enabled: !!dbUserId,
-  });
-
-  // Show username prompt if user hasn't customized their name
-  useEffect(() => {
-    if (fullUser && !fullUser.hasCustomUsername) {
-      setShowUsernamePrompt(true);
-    }
-  }, [fullUser]);
 
   const updateSetting = (key: string, value: any) => {
     if (!isHost) {
@@ -93,13 +70,6 @@ export default function MultiplayerLobby({
   };
 
   const playersToShow = connectedPlayers;
-
-  const handleUsernameUpdate = (newUsername: string) => {
-    setShowUsernamePrompt(false);
-    if (onUsernameUpdate) {
-      onUsernameUpdate(newUsername);
-    }
-  };
 
   return (
     <section className="mb-12" data-testid="multiplayer-lobby">
@@ -259,17 +229,6 @@ export default function MultiplayerLobby({
           </Card>
         </div>
       </div>
-
-      {/* Username Prompt Dialog */}
-      {dbUserId && currentUsername && (
-        <UsernamePromptDialog
-          open={showUsernamePrompt}
-          onOpenChange={setShowUsernamePrompt}
-          userId={dbUserId}
-          currentUsername={currentUsername}
-          onSuccess={handleUsernameUpdate}
-        />
-      )}
     </section>
   );
 }

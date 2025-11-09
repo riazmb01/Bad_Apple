@@ -39,11 +39,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize MongoDB connection and collections
+  // Test MongoDB connection
   try {
-    const { initializeCollections } = await import('./mongodb-collections');
-    await initializeCollections();
-    await getWordsCollection(); // Test words collection
+    await getWordsCollection();
     log('MongoDB connected successfully');
   } catch (error) {
     log('Failed to connect to MongoDB, continuing without it');
