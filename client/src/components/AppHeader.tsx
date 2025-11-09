@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Trophy, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import type { AchievementWithStatus } from "@shared/mongodb-schema";
+import type { AchievementWithStatus, User } from "@shared/mongodb-schema";
 import BeeIcon from "./BeeIcon";
+import UsernamePromptDialog from "./UsernamePromptDialog";
 
 interface AppHeaderProps {
   user: {
@@ -13,7 +15,10 @@ interface AppHeaderProps {
 }
 
 export default function AppHeader({ user, dbUserId }: AppHeaderProps) {
-  const initials = user.username
+  const [showUsernamePrompt, setShowUsernamePrompt] = useState(false);
+  const [currentUsername, setCurrentUsername] = useState(user.username);
+
+  const initials = currentUsername
     .split(' ')
     .map(name => name.charAt(0))
     .join('')
@@ -25,7 +30,47 @@ export default function AppHeader({ user, dbUserId }: AppHeaderProps) {
     enabled: !!dbUserId,
   });
 
+  // Fetch full user data to check if username is customized
+  const { data: fullUser } = useQuery<User>({
+    queryKey: ['/api/users', dbUserId],
+    enabled: !!dbUserId,
+  });
+
   const unlockedCount = achievements?.filter(a => a.unlocked).length || 0;
+
+  // Show username prompt after 5 seconds if user hasn't customized their name
+  useEffect(() => {
+    if (!fullUser || !dbUserId) return;
+    
+    // Check if user has dismissed the prompt before
+    const dismissedKey = `username-prompt-dismissed-${dbUserId}`;
+    const hasDismissed = localStorage.getItem(dismissedKey);
+    
+    // Only show if user hasn't customized their username and hasn't dismissed the prompt
+    if (!fullUser.hasCustomUsername && !hasDismissed) {
+      const timer = setTimeout(() => {
+        setShowUsernamePrompt(true);
+      }, 5000); // 5 seconds delay
+
+      return () => clearTimeout(timer);
+    }
+  }, [fullUser, dbUserId]);
+
+  const handleUsernameUpdate = (newUsername: string) => {
+    setCurrentUsername(newUsername);
+    // Mark as dismissed so we don't show it again
+    if (dbUserId) {
+      localStorage.setItem(`username-prompt-dismissed-${dbUserId}`, 'true');
+    }
+  };
+
+  const handlePromptClose = (open: boolean) => {
+    setShowUsernamePrompt(open);
+    // If user closed the dialog, mark as dismissed
+    if (!open && dbUserId) {
+      localStorage.setItem(`username-prompt-dismissed-${dbUserId}`, 'true');
+    }
+  };
 
   return (
     <header className="bg-card border-b border-border shadow-sm" data-testid="app-header">
@@ -61,11 +106,22 @@ export default function AppHeader({ user, dbUserId }: AppHeaderProps) {
               <div className="w-8 h-8 bg-secondary rounded-full flex items-center justify-center">
                 <span className="text-sm font-semibold text-secondary-foreground">{initials}</span>
               </div>
-              <span className="text-sm font-medium text-foreground">{user.username}</span>
+              <span className="text-sm font-medium text-foreground">{currentUsername}</span>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Username Prompt Dialog */}
+      {dbUserId && (
+        <UsernamePromptDialog
+          open={showUsernamePrompt}
+          onOpenChange={handlePromptClose}
+          userId={dbUserId}
+          currentUsername={currentUsername}
+          onSuccess={handleUsernameUpdate}
+        />
+      )}
     </header>
   );
 }
