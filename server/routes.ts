@@ -576,6 +576,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const isCorrect = answer.toLowerCase() === currentWord.word.toLowerCase();
     const points = isCorrect ? 100 : 0;
     
+    // Debug logging for answer checking
+    console.log('[ANSWER_CHECK]', {
+      submittedAnswer: answer,
+      correctWord: currentWord.word,
+      submittedLower: answer.toLowerCase(),
+      correctLower: currentWord.word.toLowerCase(),
+      isCorrect,
+      isEliminationMode,
+      userId: ws.userId,
+      username: ws.username
+    });
+    
     if (userSession) {
       const updates: Partial<GameSession> = {
         score: (userSession.score || 0) + points,
@@ -585,6 +597,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // In elimination mode, eliminate player if they get it wrong
       if (isEliminationMode && !isCorrect && !userSession.isEliminated) {
+        console.log('[ELIMINATION]', {
+          userId: ws.userId,
+          username: ws.username,
+          reason: 'incorrect answer in elimination mode'
+        });
         updates.isEliminated = true;
         updates.eliminatedAt = new Date();
       }
