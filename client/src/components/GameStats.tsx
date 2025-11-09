@@ -120,7 +120,12 @@ export default function GameStats({ userId, isUserReady }: GameStatsProps) {
         {/* Achievements */}
         <Card>
           <CardContent className="p-6">
-            <h3 className="text-xl font-semibold text-foreground mb-6" data-testid="achievements-title">Achievements</h3>
+            <div className="flex items-center gap-2 mb-6">
+              <h3 className="text-xl font-semibold text-foreground" data-testid="achievements-title">Achievements</h3>
+              <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                BETA
+              </span>
+            </div>
             
             <div className="space-y-3 max-h-[400px] overflow-y-auto">
               {achievementsLoading ? (
