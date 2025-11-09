@@ -1,6 +1,6 @@
 import { Trophy, TrendingUp } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import type { AchievementWithStatus } from "@shared/schema";
+import type { AchievementWithStatus } from "@shared/mongodb-schema";
 import BeeIcon from "./BeeIcon";
 
 interface AppHeaderProps {

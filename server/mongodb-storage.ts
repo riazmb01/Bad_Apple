@@ -91,7 +91,7 @@ export class MongoDBStorage implements IStorage {
       { returnDocument: 'after' }
     );
     
-    return result ? this.mapMongoUser(result) : undefined;
+    return result && result.value ? this.mapMongoUser(result.value) : undefined;
   }
 
   // Game room operations
@@ -144,7 +144,7 @@ export class MongoDBStorage implements IStorage {
       { returnDocument: 'after' }
     );
     
-    return result ? this.mapMongoGameRoom(result) : undefined;
+    return result && result.value ? this.mapMongoGameRoom(result.value) : undefined;
   }
 
   async deleteGameRoom(id: string): Promise<boolean> {
@@ -203,7 +203,7 @@ export class MongoDBStorage implements IStorage {
       { returnDocument: 'after' }
     );
     
-    return result ? this.mapMongoGameSession(result) : undefined;
+    return result && result.value ? this.mapMongoGameSession(result.value) : undefined;
   }
 
   async deleteGameSession(id: string): Promise<boolean> {

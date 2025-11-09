@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { type User, type AchievementWithStatus } from "@shared/schema";
+import { type User, type AchievementWithStatus } from "@shared/mongodb-schema";
 
 interface GameStatsProps {
   userId: string;

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { GameState, PlayerState, Word, Achievement, User } from "@shared/schema";
+import { GameState, PlayerState, Word, Achievement, User } from "@shared/mongodb-schema";
 import { useWebSocket } from "./useWebSocket";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
