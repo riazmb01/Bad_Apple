@@ -245,46 +245,58 @@ export default function SpellingBeeGame({
     if (isEliminated) return;
     
     if (userInput.trim() && currentWord && !gameOver) {
-      const isCorrect = userInput.trim().toLowerCase() === currentWord.word.toLowerCase();
+      // Check if we're in multiplayer mode (server controls the word)
+      const isMultiplayer = gameState?.currentWord !== undefined;
       
-      setTotalAttempts(prev => prev + 1);
-      
-      if (isCorrect) {
-        setCorrectCount(prev => prev + 1);
-        let points = 10;
-        if (hintsUsed.firstLetter) points -= 2;
-        if (hintsUsed.definition) points -= 3;
-        if (hintsUsed.sentence) points -= 3;
-        setScore(prev => prev + Math.max(points, 1));
-        
-        // Add 5 seconds to timer for correct answer (capped at 60 seconds max)
-        setTimeLeft(prev => Math.min(60, prev + 5));
-        
-        setFeedback({
-          show: true,
-          isCorrect: true,
-          message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +5 seconds`
-        });
+      if (isMultiplayer) {
+        // In multiplayer mode: don't check locally, let server decide
+        // Server will send back answer_submitted message with the result
+        onSubmitAnswer(userInput.trim());
+        setUserInput(""); // Clear input immediately
+        // No local feedback - wait for server response
       } else {
-        // Subtract 3 seconds for incorrect answer
-        setTimeLeft(prev => Math.max(0, prev - 3));
+        // Single player mode: check answer locally
+        const isCorrect = userInput.trim().toLowerCase() === currentWord.word.toLowerCase();
         
-        setFeedback({
-          show: true,
-          isCorrect: false,
-          message: `Incorrect. The correct spelling was "${currentWord.word}". -3 seconds`
-        });
+        setTotalAttempts(prev => prev + 1);
+        
+        if (isCorrect) {
+          setCorrectCount(prev => prev + 1);
+          let points = 10;
+          if (hintsUsed.firstLetter) points -= 2;
+          if (hintsUsed.definition) points -= 3;
+          if (hintsUsed.sentence) points -= 3;
+          setScore(prev => prev + Math.max(points, 1));
+          
+          // Add 5 seconds to timer for correct answer (capped at 60 seconds max)
+          setTimeLeft(prev => Math.min(60, prev + 5));
+          
+          setFeedback({
+            show: true,
+            isCorrect: true,
+            message: `Correct! The word was "${currentWord.word}". You earned ${Math.max(points, 1)} points! +5 seconds`
+          });
+        } else {
+          // Subtract 3 seconds for incorrect answer
+          setTimeLeft(prev => Math.max(0, prev - 3));
+          
+          setFeedback({
+            show: true,
+            isCorrect: false,
+            message: `Incorrect. The correct spelling was "${currentWord.word}". -3 seconds`
+          });
+        }
+        
+        // Notify parent component for backend synchronization
+        onSubmitAnswer(userInput.trim());
+        
+        // Show feedback for 2 seconds before moving to next word
+        setTimeout(() => {
+          setUserInput("");
+          setCurrentWordIndex(prev => prev + 1);
+          setTotalWordsAttempted(prev => prev + 1);
+        }, 2000);
       }
-      
-      // Notify parent component for backend synchronization
-      onSubmitAnswer(userInput.trim());
-      
-      // Show feedback for 2 seconds before moving to next word
-      setTimeout(() => {
-        setUserInput("");
-        setCurrentWordIndex(prev => prev + 1);
-        setTotalWordsAttempted(prev => prev + 1);
-      }, 2000);
     }
   };
 

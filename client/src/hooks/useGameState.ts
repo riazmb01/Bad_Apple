@@ -281,6 +281,23 @@ export function useGameState() {
             ...prev,
             score: message.payload.updatedScore || (prev.score + message.payload.points)
           } : null);
+          
+          // Show feedback toast for the current user's answer
+          if (message.payload.isCorrect) {
+            toast({
+              title: "Correct! ✓",
+              description: `The word was "${message.payload.correctWord}". You earned ${message.payload.points} points!`,
+              variant: "default",
+              duration: 2000,
+            });
+          } else {
+            toast({
+              title: "Incorrect ✗",
+              description: `The correct spelling was "${message.payload.correctWord}".`,
+              variant: "destructive",
+              duration: 3000,
+            });
+          }
         }
         // Update the player's score in connectedPlayers for live leaderboard
         if (message.payload.updatedScore !== undefined) {
