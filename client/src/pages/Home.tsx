@@ -42,7 +42,9 @@ export default function Home() {
     markPlayerReady,
     updateSettings,
     restartGame,
-    isUserReady
+    isUserReady,
+    multiplayerFeedback,
+    clearMultiplayerFeedback
   } = useGameState();
 
   const handleSelectMode = (mode: 'spelling' | 'grammar' | 'multiplayer') => {
@@ -244,6 +246,8 @@ export default function Home() {
             onUseHint={(hintType: string) => useHint(hintType as 'firstLetter' | 'definition' | 'sentence')}
             onSkipWord={handleSkipWord}
             onPauseGame={handlePauseGame}
+            multiplayerFeedback={multiplayerFeedback}
+            clearMultiplayerFeedback={clearMultiplayerFeedback}
           />
         )}
 

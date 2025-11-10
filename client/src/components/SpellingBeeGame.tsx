@@ -26,6 +26,8 @@ interface SpellingBeeGameProps {
   onSkipWord: () => void;
   onPauseGame: () => void;
   isEliminated?: boolean; // For elimination mode - disables input if player is eliminated
+  multiplayerFeedback?: { show: boolean; isCorrect: boolean; message: string }; // Feedback from server in multiplayer
+  clearMultiplayerFeedback?: () => void; // Reset multiplayer feedback
 }
 
 export default function SpellingBeeGame({ 
@@ -36,7 +38,9 @@ export default function SpellingBeeGame({
   onUseHint, 
   onSkipWord, 
   onPauseGame,
-  isEliminated = false
+  isEliminated = false,
+  multiplayerFeedback,
+  clearMultiplayerFeedback
 }: SpellingBeeGameProps) {
   const [userInput, setUserInput] = useState("");
   const [timeLeft, setTimeLeft] = useState(60);
@@ -459,17 +463,17 @@ export default function SpellingBeeGame({
               </Button>
             </div>
             
-            {/* Feedback Display */}
-            {feedback.show && (
+            {/* Feedback Display - Use multiplayerFeedback if available, otherwise use local feedback */}
+            {((multiplayerFeedback?.show) || feedback.show) && (
               <div 
                 className={`mb-6 p-4 rounded-lg ${
-                  feedback.isCorrect 
+                  (multiplayerFeedback?.show ? multiplayerFeedback.isCorrect : feedback.isCorrect)
                     ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-2 border-green-500' 
                     : 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-2 border-red-500'
                 }`}
-                data-testid={feedback.isCorrect ? 'feedback-correct' : 'feedback-incorrect'}
+                data-testid={(multiplayerFeedback?.show ? multiplayerFeedback.isCorrect : feedback.isCorrect) ? 'feedback-correct' : 'feedback-incorrect'}
               >
-                <p className="text-lg font-semibold">{feedback.message}</p>
+                <p className="text-lg font-semibold">{multiplayerFeedback?.show ? multiplayerFeedback.message : feedback.message}</p>
               </div>
             )}
             
@@ -483,7 +487,7 @@ export default function SpellingBeeGame({
                 className="typing-input text-2xl text-center py-4 px-6"
                 placeholder="Type the word here..."
                 data-testid="input-word-spelling"
-                disabled={feedback.show}
+                disabled={feedback.show || multiplayerFeedback?.show}
               />
             </div>
           </div>
@@ -557,7 +561,7 @@ export default function SpellingBeeGame({
             <Button 
               variant="ghost"
               onClick={handleSkipWord}
-              disabled={feedback.show}
+              disabled={feedback.show || multiplayerFeedback?.show}
               data-testid="button-skip-word"
             >
               <Forward className="mr-2 w-4 h-4" />
@@ -575,7 +579,7 @@ export default function SpellingBeeGame({
               </Button>
               <Button 
                 onClick={handleSubmit}
-                disabled={!userInput.trim() || feedback.show}
+                disabled={!userInput.trim() || feedback.show || multiplayerFeedback?.show}
                 data-testid="button-submit-answer"
               >
                 <Check className="mr-2 w-4 h-4" />

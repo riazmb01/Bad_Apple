@@ -134,6 +134,11 @@ export function useGameState() {
   const [gameResults, setGameResults] = useState<any>(null);
   const [roomSettings, setRoomSettings] = useState<any>(null);
   const [isUserReady, setIsUserReady] = useState(false);
+  const [multiplayerFeedback, setMultiplayerFeedback] = useState<{ 
+    show: boolean; 
+    isCorrect: boolean; 
+    message: string 
+  }>({ show: false, isCorrect: false, message: '' });
 
   const { connectionState, lastMessage, sendMessage } = useWebSocket("/ws");
 
@@ -284,6 +289,8 @@ export function useGameState() {
         break;
       case 'next_round':
         setGameState(message.payload.gameState);
+        // Reset feedback when moving to next round
+        setMultiplayerFeedback({ show: false, isCorrect: false, message: '' });
         break;
       case 'game_ended':
         setGameState(null);
@@ -300,20 +307,18 @@ export function useGameState() {
             score: message.payload.updatedScore || (prev.score + message.payload.points)
           } : null);
           
-          // Show feedback toast for the current user's answer
+          // Show feedback banner for the current user's answer
           if (message.payload.isCorrect) {
-            toast({
-              title: "Correct! ✓",
-              description: `The word was "${message.payload.correctWord}". You earned ${message.payload.points} points!`,
-              variant: "default",
-              duration: 2000,
+            setMultiplayerFeedback({
+              show: true,
+              isCorrect: true,
+              message: `Correct! The word was "${message.payload.correctWord}". You earned ${message.payload.points} points!`
             });
           } else {
-            toast({
-              title: "Incorrect ✗",
-              description: `The correct spelling was "${message.payload.correctWord}".`,
-              variant: "destructive",
-              duration: 3000,
+            setMultiplayerFeedback({
+              show: true,
+              isCorrect: false,
+              message: `Incorrect. The correct spelling was "${message.payload.correctWord}".`
             });
           }
         }
@@ -597,6 +602,8 @@ export function useGameState() {
     markPlayerReady,
     updateSettings,
     restartGame,
-    isUserReady
+    isUserReady,
+    multiplayerFeedback,
+    clearMultiplayerFeedback: () => setMultiplayerFeedback({ show: false, isCorrect: false, message: '' })
   };
 }

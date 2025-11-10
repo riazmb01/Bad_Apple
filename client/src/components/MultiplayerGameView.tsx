@@ -13,6 +13,8 @@ interface MultiplayerGameViewProps {
   onUseHint: (hintType: string) => void;
   onSkipWord: () => void;
   onPauseGame: () => void;
+  multiplayerFeedback: { show: boolean; isCorrect: boolean; message: string };
+  clearMultiplayerFeedback: () => void;
 }
 
 export default function MultiplayerGameView({
@@ -23,7 +25,9 @@ export default function MultiplayerGameView({
   onSubmitAnswer,
   onUseHint,
   onSkipWord,
-  onPauseGame
+  onPauseGame,
+  multiplayerFeedback,
+  clearMultiplayerFeedback
 }: MultiplayerGameViewProps) {
   const sortedPlayers = [...connectedPlayers].sort((a, b) => (b.score || 0) - (a.score || 0));
   const isTimedChallenge = gameState.competitionType === 'timed';
@@ -131,6 +135,8 @@ export default function MultiplayerGameView({
             onSkipWord={onSkipWord}
             onPauseGame={onPauseGame}
             isEliminated={isEliminated}
+            multiplayerFeedback={multiplayerFeedback}
+            clearMultiplayerFeedback={clearMultiplayerFeedback}
           />
         )}
         {gameState.gameMode === 'grammar' && (
