@@ -7,10 +7,8 @@ export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
-  getAllUsers(): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
-  deleteUser(id: string): Promise<boolean>;
 
   // Game room operations
   createGameRoom(room: InsertGameRoom): Promise<GameRoom>;
@@ -24,14 +22,12 @@ export interface IStorage {
   createGameSession(session: InsertGameSession): Promise<GameSession>;
   getGameSession(id: string): Promise<GameSession | undefined>;
   getGameSessionsByRoom(roomId: string): Promise<GameSession[]>;
-  getGameSessionsByUser(userId: string): Promise<GameSession[]>;
   updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined>;
   deleteGameSession(id: string): Promise<boolean>;
 
   // Achievement operations
   getUserAchievements(userId: string): Promise<UserAchievement[]>;
   unlockAchievement(userId: string, achievementId: string): Promise<UserAchievement>;
-  deleteUserAchievement(id: string): Promise<boolean>;
 
   // Leaderboard operations
   getLeaderboard(limit?: number): Promise<User[]>;
@@ -59,10 +55,6 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values());
-  }
-
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
     const user: User = {
@@ -75,11 +67,8 @@ export class MemStorage implements IStorage {
       gamesWon: 0,
       gamesPlayed: 0,
       bestStreak: 0,
-      totalCorrect: 0,
-      totalAttempts: 0,
       achievements: [],
       createdAt: new Date(),
-      lastAccessed: new Date(),
       ...insertUser,
     };
     this.users.set(id, user);
@@ -93,10 +82,6 @@ export class MemStorage implements IStorage {
     const updatedUser = { ...user, ...updates };
     this.users.set(id, updatedUser);
     return updatedUser;
-  }
-
-  async deleteUser(id: string): Promise<boolean> {
-    return this.users.delete(id);
   }
 
   // Game room operations
@@ -153,15 +138,10 @@ export class MemStorage implements IStorage {
       score: 0,
       correctAnswers: 0,
       totalAnswers: 0,
-      currentStreak: 0,
-      bestStreak: 0,
       hintsUsed: 0,
       timeElapsed: 0,
-      isReady: true,
       isComplete: false,
       isConnected: true,
-      isEliminated: false,
-      eliminatedAt: null,
       disconnectedAt: null,
       createdAt: new Date(),
       ...insertSession,
@@ -177,12 +157,6 @@ export class MemStorage implements IStorage {
   async getGameSessionsByRoom(roomId: string): Promise<GameSession[]> {
     return Array.from(this.gameSessions.values()).filter(
       (session) => session.roomId === roomId,
-    );
-  }
-
-  async getGameSessionsByUser(userId: string): Promise<GameSession[]> {
-    return Array.from(this.gameSessions.values()).filter(
-      (session) => session.userId === userId,
     );
   }
 
@@ -214,11 +188,6 @@ export class MemStorage implements IStorage {
     };
   }
 
-  async deleteUserAchievement(id: string): Promise<boolean> {
-    // Not implemented for MemStorage
-    return false;
-  }
-
   // Leaderboard operations
   async getLeaderboard(limit: number = 10): Promise<User[]> {
     return Array.from(this.users.values())
@@ -248,10 +217,6 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return await db.select().from(users);
-  }
-
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
@@ -278,11 +243,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return user || undefined;
-  }
-
-  async deleteUser(id: string): Promise<boolean> {
-    const result = await db.delete(users).where(eq(users.id, id));
-    return (result.rowCount ?? 0) > 0;
   }
 
   // Game room operations
@@ -358,10 +318,6 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(gameSessions).where(eq(gameSessions.roomId, roomId));
   }
 
-  async getGameSessionsByUser(userId: string): Promise<GameSession[]> {
-    return await db.select().from(gameSessions).where(eq(gameSessions.userId, userId));
-  }
-
   async updateGameSession(id: string, updates: Partial<GameSession>): Promise<GameSession | undefined> {
     const [session] = await db
       .update(gameSessions)
@@ -403,11 +359,6 @@ export class DatabaseStorage implements IStorage {
       }
       throw error;
     }
-  }
-
-  async deleteUserAchievement(id: string): Promise<boolean> {
-    const result = await db.delete(userAchievements).where(eq(userAchievements.id, id));
-    return (result.rowCount ?? 0) > 0;
   }
 
   // Leaderboard operations
