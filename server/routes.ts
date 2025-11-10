@@ -764,6 +764,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     const isCorrect = answer.toLowerCase() === currentWord.word.toLowerCase();
     
+    // In timed challenge mode, add bonus time for correct answers
+    const isTimedMode = gameState.competitionType === 'timed';
+    if (isTimedMode && isCorrect) {
+      const TIME_BONUS = 5; // Add 5 seconds for each correct answer
+      const MAX_TIME = 60; // Cap at 60 seconds
+      const newTimeLeft = Math.min((gameState.timeLeft || 0) + TIME_BONUS, MAX_TIME);
+      
+      gameState.timeLeft = newTimeLeft;
+      
+      // Update the room with the new game state
+      await storage.updateGameRoom(room.id, { gameState });
+      
+      // Broadcast the updated timer to all players
+      broadcastToRoom(room.id, {
+        type: 'word_timer_update',
+        payload: { timeLeft: newTimeLeft }
+      });
+      
+      console.log('[TIMER_BONUS]', {
+        userId: ws.userId,
+        username: ws.username,
+        bonusAdded: TIME_BONUS,
+        newTimeLeft,
+        capped: newTimeLeft === MAX_TIME
+      });
+    }
+    
     // Calculate points based on hints used for this word
     let points = 0;
     if (isCorrect) {
