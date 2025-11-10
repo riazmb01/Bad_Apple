@@ -246,6 +246,14 @@ export default function SpellingBeeGame({
     }
   }, [gameOver, userId, score, correctCount, totalAttempts, timeLeft]);
 
+  // Sync timer with server in multiplayer mode (for timed challenge timer bonus)
+  useEffect(() => {
+    // Check if we're in multiplayer mode with server-managed timer
+    if (gameState?.timeLeft !== undefined && gameState?.competitionType === 'timed') {
+      setTimeLeft(gameState.timeLeft);
+    }
+  }, [gameState?.timeLeft, gameState?.competitionType]);
+
   const handleTimeOut = () => {
     // Game over - show results screen
     setGameOver(true);

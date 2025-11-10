@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 export function useGameState() {
   const { toast } = useToast();
   const isAutoRejoinAttempt = useRef(false);
+  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Generate or retrieve unique player ID from localStorage
   const getOrCreatePlayerId = () => {
@@ -290,10 +291,19 @@ export function useGameState() {
       case 'next_round':
         setGameState(message.payload.gameState);
         // Reset feedback when moving to next round
+        if (feedbackTimeoutRef.current) {
+          clearTimeout(feedbackTimeoutRef.current);
+          feedbackTimeoutRef.current = null;
+        }
         setMultiplayerFeedback({ show: false, isCorrect: false, message: '' });
         break;
       case 'game_ended':
         setGameState(null);
+        // Clear any pending feedback timeout
+        if (feedbackTimeoutRef.current) {
+          clearTimeout(feedbackTimeoutRef.current);
+          feedbackTimeoutRef.current = null;
+        }
         if (message.payload.sessions) {
           setGameResults(message.payload.sessions);
         }
@@ -321,6 +331,17 @@ export function useGameState() {
               message: `Incorrect. The correct spelling was "${message.payload.correctWord}".`
             });
           }
+          
+          // Clear any existing timeout to prevent premature clearing
+          if (feedbackTimeoutRef.current) {
+            clearTimeout(feedbackTimeoutRef.current);
+          }
+          
+          // Auto-clear feedback after 2 seconds (matching single-player behavior)
+          feedbackTimeoutRef.current = setTimeout(() => {
+            setMultiplayerFeedback({ show: false, isCorrect: false, message: '' });
+            feedbackTimeoutRef.current = null;
+          }, 2000);
         }
         // Update the player's score in connectedPlayers for live leaderboard
         if (message.payload.updatedScore !== undefined) {
